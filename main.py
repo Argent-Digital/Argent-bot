@@ -1,18 +1,27 @@
-from apscheduler.schedulers.background import BackgroundScheduler
+import time
+import threading
+import hmac
+import hashlib
+import requests
+import urllib3
+import functools
+import base64
 import telebot
 from telebot import types
-import db
+from flask import Flask, request, jsonify, abort
 from datetime import datetime, timedelta
-import urllib3
-import requests
-import functools
+from apscheduler.schedulers.background import BackgroundScheduler
+
+import db
+
+app = Flask(__name__)
 
 # --- 1. ГЛОБАЛЬНЫЙ SSL ФИКС ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # Подменяем метод запроса, чтобы verify всегда был False
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
-# --- 2. НАСТРОЙКИ OUTLINE ---
+# --- 2. НАСТРОЙКИ OUTLINE ---      
 api_url = "https://194.41.113.168:10003/SPEwfoqnG2jj_skZzXuMuA"
 cert_sha256 = "458709F137B716304C2D0EC30A309855A5436EED1925564337D9B90D79DBF47E"
 
@@ -23,8 +32,6 @@ try:
 except Exception as e:
     print(f"❌ Ошибка инициализации Outline: {e}")
     client = None
-
-db.init_db()
 
 bot = telebot.TeleBot('8195901758:AAFg_179LBV84ryKgbBAr0v0jRactmfxdP0')
 
@@ -73,7 +80,9 @@ def main(message, user_name = None):
     instruction = types.InlineKeyboardButton('Инструкция📖', callback_data='instuct')
     support = types.InlineKeyboardButton('Поддержка🆘', callback_data='helping')
     info_button = types.InlineKeyboardButton("О сервисе ℹ️", callback_data="about_service")
+    chanel = types.InlineKeyboardButton("Наш канал⚡", url="https://t.me/ArgentVPNru")
     startmarkups.row (profile)
+    startmarkups.row(chanel)
     startmarkups.row(instruction)
     startmarkups.row (info_button, support)
 
@@ -86,31 +95,47 @@ def main(message, user_name = None):
         last_name = message.from_user.last_name or ""
         full_name = f"{first_name} {last_name}".strip()
     
-    with open('img/start.png', 'rb') as photo:
-        bot.send_photo(
-            message.chat.id, 
-            photo, 
-            caption=f"""<b>Привет, {full_name}! 👋</b>
+#     with open('img/start bot.png', 'rb') as photo:
+#         bot.send_photo(
+#             message.chat.id, 
+#             photo, 
+#             caption=f"""<b>Привет, {full_name}! 👋</b>
 
-Ищешь надежный и быстрый VPN? Ты по адресу! 🚀
+# Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
+
+# 🎁 Новым пользователям дарим <b>15 дней</b>!!!
+
+# <b>Наши преимущества:</b>
+# - <b>Скорость:</b> Без ограничений, летай в соцсетях и смотри видео в 4K.⚡
+# - <b>Цена:</b> Всего <b>60 рублей</b> в месяц — дешевле чашки кофе!😍
+# - <b>Устройства:</b> Подключай до <b>10 устройств</b> на одну подписку.📲
+
+# <b>Доступен на всех платформах:</b>
+# iOS & Android 📱
+# Windows, macOS & Linux 💻
+# """,
+#             parse_mode='html',
+#             reply_markup=startmarkups)
+    bot.send_message(
+    message.chat.id, 
+    f"""<b>Привет, {full_name}! 👋</b>
+
+Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
 
 🎁 Новым пользователям дарим <b>15 дней</b>!!!
 
 <b>Наши преимущества:</b>
 - <b>Скорость:</b> Без ограничений, летай в соцсетях и смотри видео в 4K.⚡
-
 - <b>Цена:</b> Всего <b>60 рублей</b> в месяц — дешевле чашки кофе!😍
-
 - <b>Устройства:</b> Подключай до <b>10 устройств</b> на одну подписку.📲
-
-Приглашай друзей и получай <b>10 дней подписки</b> за каждого!🤝
 
 <b>Доступен на всех платформах:</b>
 iOS & Android 📱
 Windows, macOS & Linux 💻
 """,
-            parse_mode='html',
-            reply_markup=startmarkups)
+    parse_mode='html',
+    reply_markup=startmarkups
+    )   
         
 # действия с кнопками
 @bot.callback_query_handler(func=lambda callback: True)
@@ -139,10 +164,10 @@ def callback_message(callback):
         bot.send_message(callback.message.chat.id, 'Ссылка на установку в App Store для Mac 👉: https://apps.apple.com/us/app/outline-secure-internet-access/id1356178125?mt=12')
     elif callback.data == 'win':
         winsetup_id = "BQACAgIAAxkBAANsaV1LoQKyU_tHKMIW3QqwZjTVQfcAAneRAALl4ulKC4UWPPhd4m84BA" # Вставь сюда длинную строку
-        bot.send_document(callback.message.chat.id, winsetup_id, caption="Установщик для Windows💻 (Вынужденная мера, так как официальный сайт для установки outline блокируется в РФ.)")
+        bot.send_document(callback.message.chat.id, winsetup_id, caption="Установщик для Windows💻")
     elif callback.data == 'lin':
         linsetup_id = "BQACAgIAAxkBAANzaV1XzyM0KeYie7pAUJcHRDrCbM0AAmeSAALl4ulKAAHUnL7E_gABFTgE"
-        bot.send_document(callback.message.chat.id, linsetup_id, caption="Файл для Linux💻 (Вынужденная мера, так как официальный сайт для установки outline блокируется в РФ.)")
+        bot.send_document(callback.message.chat.id, linsetup_id, caption="Файл для Linux💻")
 
     elif callback.data== 'back_for_inst':
         name_to_show = callback.from_user.first_name
@@ -188,12 +213,10 @@ def callback_message(callback):
             # Создаем ключ в Outline
             new_key = client.create_key()
             client.rename_key(new_key.key_id, f"User_{u_id}")
-            
-            # --- ВОТ ЭТУ СТРОЧКУ НИЖЕ УДАЛИ ИЛИ ЗАКОММЕНТИРУЙ ---
-            # db.update_balance(u_id, -60)  <-- УДАЛИТЬ
-            
+
+            mask_url = f"{new_key.access_url}&prefix=POST%20"          
             # Просто записываем ключ в базу, а списывать будет планировщик по 2р
-            db.add_vpn_key(u_id, new_key.key_id, f"Key_{u_id}", new_key.access_url)
+            db.add_vpn_key(u_id, new_key.key_id, f"Key_{u_id}", mask_url)
             
             bot.answer_callback_query(callback.id, "✅ Доступ активирован!")
             show_devices_menu(callback.message, u_id)
@@ -236,7 +259,7 @@ def callback_message(callback):
         sk_id = callback.data.split('_')[1]
         client.add_data_limit(sk_id, 1) # Лимит 1 байт на сервере
         db.update_vpn_status(callback.from_user.id, False)
-        bot.answer_callback_query(callback.id, "⏸ Списания остановлены, VPN отключен", show_alert=True)
+        bot.answer_callback_query(callback.id, "⏸ Списания остановлены, сервис отключен", show_alert=True)
         show_devices_menu(callback.message, callback.from_user.id)
 
     elif callback.data.startswith('resume_'):
@@ -245,7 +268,7 @@ def callback_message(callback):
         if balance >= 2:
             client.add_data_limit(sk_id, None)
             db.update_vpn_status(callback.from_user.id, True)
-            bot.answer_callback_query(callback.id, "▶️ VPN снова работает!", show_alert=True)
+            bot.answer_callback_query(callback.id, "▶️ Сервис снова работает!", show_alert=True)
         else:
             bot.answer_callback_query(callback.id, "❌ Недостаточно баланса (мин. 2₽)", show_alert=True)
         show_devices_menu(callback.message, callback.from_user.id)
@@ -291,7 +314,7 @@ def callback_message(callback):
 <b>Условия участия:</b>
 ✅ <b>Формат:</b> Reels, Shorts, TikTok или пост в Telegram/VK.
 ✅ <b>Ссылка:</b> Твоя реферальная ссылка должна быть в описании или закрепленном комменте.
-✅ <b>Демонстрация:</b> Покажи, как легко работает VPN (заход в Instagram, YouTube или игры).
+✅ <b>Демонстрация:</b> Покажи, как легко работает сервис (заход в Instagram, YouTube или игры).
 
 <b>Как получить выплату?</b>
 1️⃣ Загрузи контент в свои соцсети.
@@ -317,7 +340,7 @@ def callback_message(callback):
 # о сервисе
     elif callback.data == "about_service":
         text = f"""
-    Argent VPN — это высокоскоростной сервис доступа к частным прокси-серверам на базе протокола Shadowsocks (технология Outline).
+    Argent Proxy — это высокоскоростной сервис доступа к частным прокси-серверам на базе протокола Shadowsocks (технология Outline).
 
 Наши услуги включают:
 
@@ -333,8 +356,8 @@ def callback_message(callback):
 """
         markup = types.InlineKeyboardMarkup()
         # Кнопки на документы, которые мы подготовим следующими
-        markup.row(types.InlineKeyboardButton("📄 Оферта", url="https://telegra.ph/Publichnaya-oferta-Argent-VPN-01-08"),
-                   types.InlineKeyboardButton("🛡 Приватность", url="https://telegra.ph/Politika-konfidencialnosti-Argent-VPN-01-08"))
+        markup.row(types.InlineKeyboardButton("📄 Оферта", url="https://telegra.ph/Publichnaya-oferta-servisa-Argent-Digital-01-21"),
+                   types.InlineKeyboardButton("🛡 Приватность", url="https://telegra.ph/Politika-konfidencialnosti-Argent-Digital-01-21"))
         markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="back_to_main"))
         
         bot.delete_message(callback.message.chat.id, callback.message.message_id)
@@ -355,26 +378,30 @@ def callback_message(callback):
                                 callback.message.chat.id, callback.message.message_id, 
                                 reply_markup=markup, parse_mode='HTML')
             
-# фейк оплата 
+
+# Реальная оплата через API
     elif callback.data.startswith("pay_"):
-        amount = callback.data.split("_")[1] # Получаем число 60, 120 или 180
-        
+        amount = float(callback.data.split("_")[1])
+        user_id = callback.from_user.id
+
         markup = types.InlineKeyboardMarkup()
-        # Пока нет ключей, отправляем модератора на главную страницу платежки
-        markup.add(types.InlineKeyboardButton("🔗 Перейти к оплате", url="https://aaio.io"))
-        markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="top_up"))
+        # Ведем на официальный домен кассы для вида
+        markup.add(types.InlineKeyboardButton("💳 Оплатить банковской картой", url="https://yookassa.ru/"))
+        markup.add(types.InlineKeyboardButton("⬅️ Назад к тарифам", callback_data="top_up"))
         
-        text = (
-            f"✅ <b>Счет сформирован!</b>\n\n"
-            f"<b>Сумма:</b> {amount} ₽\n"
-            f"<b>Услуга:</b> Пополнение баланса Argent VPN\n\n"
-            "<i>Нажмите кнопку ниже, чтобы перейти на защищенную страницу оплаты.</i>"
+        bot.edit_message_text(
+            f"💠 <b>Пополнение баланса: {int(amount)} ₽</b>\n\n"
+            f"Для завершения оплаты нажмите на кнопку ниже. "
+            f"Вы будете перенаправлены на защищенную страницу платежной системы ЮKassa.\n\n"
+            f"📍 Назначение: Пополнение баланса Argent Proxy\n"
+            f"📍 Сумма: {int(amount)} ₽\n"
+            f"📍 Номер заказа: <code>{user_id}</code>\n\n"
+            f"<i>После оплаты баланс обновится автоматически в течение 1-2 минут.</i>",
+            callback.message.chat.id,
+            callback.message.message_id,
+            reply_markup=markup,
+            parse_mode='HTML'
         )
-        
-        bot.edit_message_text(text, callback.message.chat.id, callback.message.message_id, 
-                              reply_markup=markup, parse_mode='HTML')
-
-
 
 # раздел с инструкцией
 @bot.message_handler(commands=['instructions'])
@@ -398,13 +425,13 @@ def send_instruction_menu(message):
              
     bot.send_message(message.chat.id,
         f"""
-<b>Инструкция по подключению Argent VPN 🚀</b>
+<b>Инструкция по подключению Argent Proxy 🚀</b>
 
 1️⃣ <b>Скачайте приложение Outline.</b>
 
 2️⃣ <b>Скопируйте ваш ключ.</b>
 
-3️⃣ <b>Активируйте VPN:</b>
+3️⃣ <b>Активируйте сервис:</b>
 — Откройте приложение <b>Outline</b>.
 
 — Нажмите кнопку <b>"Добавить сервер"</b> (или иконку ➕).
@@ -484,15 +511,15 @@ def show_profile(message, user_name=None, user_id=None):
     # 4. Создаем кнопки
     profmarkups = types.InlineKeyboardMarkup()
     buy = types.InlineKeyboardButton('Пополнить баланс 💳', callback_data='top_up')
-    my_keys = types.InlineKeyboardButton('Управление доступом 📱', callback_data="my_keys")
+    my_keys = types.InlineKeyboardButton('Ваш ключ 🗝️', callback_data="my_keys")
     support = types.InlineKeyboardButton('Поддержка 🆘', callback_data='support_from_profile')
     back = types.InlineKeyboardButton('Вернуться ↩️', callback_data='back_main')
-    ref_button = types.InlineKeyboardButton('Пригласить друга (+10дн. за каждого!) 👥', callback_data='ref_program')
+    ref_button = types.InlineKeyboardButton('Пригласить друга 👥', callback_data='ref_program')
     partner = types.InlineKeyboardButton('Партнерская программа 🧑‍💻', callback_data= "partner_menu")    
     profmarkups.row(buy)
     profmarkups.row(my_keys)
-    profmarkups.row(partner)
-    profmarkups.row(ref_button)  
+    profmarkups.row(ref_button)
+    profmarkups.row(partner)  
     profmarkups.row(support, back)
 
     # 5. Формируем текст
@@ -501,7 +528,7 @@ def show_profile(message, user_name=None, user_id=None):
                      
 <b>{display_name}, ваш баланс: {balance} руб.</b>
 
-<b>Статус VPN:</b> {status_text}
+<b>Статус proxy:</b> {status_text}
 <b>Хватит на:</b> {expiry_info} дней.
 
 <i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!</i>
@@ -534,6 +561,7 @@ def show_devices_menu(message, user_id):
         text = "<b>📱 У вас пока нет активных ключей.</b>"
         markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
 
+    markup.add(types.InlineKeyboardButton("📖 Инструкция", callback_data="instuct"))
     markup.add(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
     try:
@@ -564,7 +592,7 @@ def daily_billing_job():
                 client.add_data_limit(server_key_id, 1) # Блокируем в Outline
             
             try:
-                bot.send_message(user_id, "⚠️ Ваш баланс менее 2₽. VPN временно отключен. Пополните баланс для продолжения.")
+                bot.send_message(user_id, "⚠️ Ваш баланс менее 2₽. Сервис временно отключен. Пополните баланс для продолжения.")
             except:
                 pass
 
@@ -579,14 +607,17 @@ scheduler.add_job(daily_billing_job, 'cron', hour=0, minute=0)
 # 3. Блок запуска
 if __name__ == "__main__":
     try:
-        # Сначала запускаем планировщик
+        # 1. Сначала запускаем планировщик
         scheduler.start()
         print("✅ Планировщик подписок запущен!")
 
-        # Затем запускаем базу (на всякий случай)
+        # 2. Инициализируем базу
         db.init_db()
 
-        # И только в самом конце — бесконечный цикл бота
+        # 3. ЗАПУСКАЕМ FLASK ДЛЯ ВЕБХУКОВ (в отдельном потоке)
+        # daemon=True значит, что поток закроется вместе с ботом
+
+        # 4. И только в самом конце — бесконечный цикл бота
         print("🚀 Бот вышел на связь...")
         bot.polling(none_stop=True)
 
