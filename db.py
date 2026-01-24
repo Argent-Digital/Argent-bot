@@ -25,9 +25,14 @@ def init_db():
             first_name TEXT,
             balance INT DEFAULT 0,
             referrer_id BIGINT,
-            registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP              
+            registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_verified BOOLEAN DEFAULT FALSE              
         );
     ''')
+    # добавление статуса капчи для существующих пользователей
+    cur.execute('''
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+    ''') 
 
     # Таблица ключей (Один юзер - один ключ)
     cur.execute('''
@@ -46,6 +51,26 @@ def init_db():
     cur.close()
     conn.close()
     print("✅ База готова к работе")
+
+# функции капчи
+def get_user_status(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT is_verified FROM users WHERE user_id = %s', (user_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    # Если юзера нет в базе или он не верифицирован — вернет False
+    return result[0] if result else False
+
+def set_user_verified(user_id):
+    """Помечает пользователя как прошедшего проверку"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute('UPDATE users SET is_verified = TRUE WHERE user_id = %s', (user_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def add_user(user_id, username, first_name, referrer_id=None):
     conn = get_connection()
@@ -83,16 +108,16 @@ def update_balance(user_id, amount):
 def add_vpn_key(user_id, server_key_id, key_name, access_url):
     conn = get_connection()
     cur = conn.cursor()
-    # Теперь просто записываем текущее время как дату начала
     now = datetime.now()
     cur.execute('''
-        INSERT INTO vpn_keys (user_id, server_key_id, key_name, access_url, expiry_date, is_active)
-        VALUES (%s, %s, %s, %s, %s, TRUE)
+        INSERT INTO vpn_keys (user_id, server_key_id, key_name, access_url, expiry_date, created_at, is_active)
+        VALUES (%s, %s, %s, %s, %s, %s, TRUE)
         ON CONFLICT (user_id) DO UPDATE SET
             server_key_id = EXCLUDED.server_key_id,
             access_url = EXCLUDED.access_url,
+            expiry_date = EXCLUDED.expiry_date, -- Обновляем дату при пересоздании
             is_active = TRUE;
-    ''', (user_id, server_key_id, key_name, access_url, now))
+    ''', (user_id, server_key_id, key_name, access_url, now, now))
     conn.commit()
     cur.close()
     conn.close()
@@ -112,10 +137,14 @@ def get_user_vpn_data(user_id):
     return result
 
 def get_all_vpn_keys():
-    """Для планировщика списаний"""
+    """Возвращает данные в строгом порядке для планировщика"""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute('SELECT user_id, server_key_id, expiry_date, is_active FROM vpn_keys')
+    # Используем COALESCE для даты, чтобы не поймать None
+    cur.execute('''
+        SELECT user_id, server_key_id, COALESCE(expiry_date, created_at, NOW()), is_active 
+        FROM vpn_keys
+    ''')
     data = cur.fetchall()
     cur.close()
     conn.close()
@@ -150,10 +179,21 @@ def update_vpn_status(user_id, status):
     conn.close()
 
 def delete_vpn_key(server_key_id):
+    """Мягкое удаление: помечает ключ как неактивный для финального списания"""
     conn = get_connection()
     cur = conn.cursor()
-    # Важно: удаляем по server_key_id, так как мы его передаем из кнопки
-    cur.execute('DELETE FROM vpn_keys WHERE server_key_id = %s', (server_key_id,))
+    # Мы не удаляем, а выключаем. Планировщик увидит это ночью.
+    cur.execute('UPDATE vpn_keys SET is_active = FALSE WHERE server_key_id = %s', (server_key_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def delete_vpn_key_final(user_id):
+    """Удаляет ключ по ID пользователя. Название старое — логика надежная!"""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Удаляем именно по user_id, так как это поле UNIQUE и оно главное в логике бота
+    cur.execute('DELETE FROM vpn_keys WHERE user_id = %s', (user_id,))
     conn.commit()
     cur.close()
     conn.close()

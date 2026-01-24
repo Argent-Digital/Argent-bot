@@ -1,20 +1,76 @@
-import time
 import threading
-import hmac
-import hashlib
+import random
+import uuid
 import requests
 import urllib3
+import gc
+import time
 import functools
-import base64
 import telebot
 from telebot import types
 from flask import Flask, request, jsonify, abort
-from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from yookassa.domain.notification import WebhookNotificationFactory
+from yookassa import Configuration, Payment
 
 import db
 
+Configuration.configure('1254528', 'live_6aco-HloIFi4SFGpCXYITwcGnguz26uhEZ4V1imd3zk')
 app = Flask(__name__)
+
+@app.route('/yookassa_webhook', methods=['POST'])
+def webhook():
+    event_json = request.json
+    try:
+        notification_object = WebhookNotificationFactory().create(event_json)
+        response_object = notification_object.object
+
+        if notification_object.event == 'payment.succeeded':
+            # 1. Получаем данные платежа
+            amount = int(float(response_object.amount.value))
+            user_id = response_object.metadata.get('user_id')
+
+            if user_id:
+                # 2. Обновляем баланс в базе данных
+                db.update_balance(int(user_id), amount)
+                print(f"✅ Баланс юзера {user_id} пополнен на {amount} руб.")
+                
+                # 3. ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ
+                try:
+                    bot.send_message(
+                        user_id, 
+                        f"💳 <b>Оплата прошла успешно!</b>\n\n"
+                        f"Ваш баланс пополнен на <b>{amount} ₽</b>.\n"
+                        f"Спасибо, что пользуетесь Argent Proxy! 🚀",
+                        parse_mode='HTML'
+                    )
+                except Exception as send_error:
+                    print(f"❌ Не удалось отправить сообщение юзеру: {send_error}")
+            
+        return 'OK', 200
+    except Exception as e:
+        print(f"❌ Ошибка в вебхуке: {e}")
+        return 'Error', 400
+
+def create_payment(user_id, amount):
+    idempotency_key = str(uuid.uuid4())
+    payment = Payment.create({
+        "amount": {
+            "value": str(amount),
+            "currency": "RUB"
+        },
+        "confirmation": {
+            "type": "redirect",
+            "return_url": "https://t.me/ArgentVPNbot"
+        },
+        "capture": True,
+        "description": f"Пополнение баланса Argent Proxy",
+        "metadata": {
+            "user_id": user_id  # ОБЯЗАТЕЛЬНО ПЕРЕДАЕМ ID
+        }
+    }, idempotency_key)
+
+    return payment.confirmation.confirmation_url
 
 # --- 1. ГЛОБАЛЬНЫЙ SSL ФИКС ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -22,8 +78,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
 # --- 2. НАСТРОЙКИ OUTLINE ---      
-api_url = "https://194.41.113.168:10003/SPEwfoqnG2jj_skZzXuMuA"
-cert_sha256 = "458709F137B716304C2D0EC30A309855A5436EED1925564337D9B90D79DBF47E"
+api_url = "https://194.41.113.168:62468/j7UAACvTcgwC8fOFU3qojg"
+cert_sha256 = "21C5C9A862E9BCE996E018759A7A448FA6504804459F00D52D8B77529798E85C"
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -34,27 +90,23 @@ except Exception as e:
     client = None
 
 bot = telebot.TeleBot('8195901758:AAFg_179LBV84ryKgbBAr0v0jRactmfxdP0')
-
-bot.set_my_commands([
-    telebot.types.BotCommand("start", "Главное меню"),
-    telebot.types.BotCommand("instructions", "Настройка устройств"),
-    telebot.types.BotCommand("profile", "Личный кабинет"),
-    telebot.types.BotCommand("support", "Поддержка")
-])
+START_PHOTO_ID = None  # Сюда бот сам запишет ID после первой отправки
 
 # start
 @bot.message_handler(commands=['start'])
 def main(message, user_name = None):
+    global START_PHOTO_ID # Обращаемся к нашей глобальной переменной
+    
     user_id = message.from_user.id
     username = message.from_user.username
-    first_name = message.from_user.first_name
     
+    # Реферальная логика
     referrer_id = None
     args = message.text.split()
     if len(args) > 1:
         try:
             potential_referrer = int(args[1])
-            if potential_referrer != user_id: # Нельзя пригласить самого себя
+            if potential_referrer != user_id:
                 referrer_id = potential_referrer
         except:
             pass
@@ -62,7 +114,7 @@ def main(message, user_name = None):
     user_data = db.get_user_vpn_data(user_id) 
     is_new_user = user_data is None
 
-    db.add_user(user_id, username, first_name, referrer_id)
+    db.add_user(user_id, username, message.from_user.first_name, referrer_id)
     if is_new_user and referrer_id:
         db.update_balance(referrer_id, 20)
         try:
@@ -75,50 +127,23 @@ def main(message, user_name = None):
     except:
         pass
 
+    # Клавиатура
     startmarkups = types.InlineKeyboardMarkup()
-    profile = types.InlineKeyboardButton('Главная👤', callback_data='home')
-    instruction = types.InlineKeyboardButton('Инструкция📖', callback_data='instuct')
-    support = types.InlineKeyboardButton('Поддержка🆘', callback_data='helping')
-    info_button = types.InlineKeyboardButton("О сервисе ℹ️", callback_data="about_service")
-    chanel = types.InlineKeyboardButton("Наш канал⚡", url="https://t.me/ArgentVPNru")
-    startmarkups.row (profile)
-    startmarkups.row(chanel)
-    startmarkups.row(instruction)
-    startmarkups.row (info_button, support)
+    startmarkups.row(types.InlineKeyboardButton('Главная👤', callback_data='home'))
+    startmarkups.row(types.InlineKeyboardButton("Наш канал⚡", url="https://t.me/ArgentVPNru"))
+    startmarkups.row(types.InlineKeyboardButton('Инструкция📖', callback_data='instuct'))
+    startmarkups.row(types.InlineKeyboardButton("О сервисе ℹ️", callback_data="about_service"), 
+                     types.InlineKeyboardButton('Поддержка🆘', callback_data='helping'))
 
+    # Формируем имя
     if user_name:
-        # Если имя пришло из callback (нажатия кнопки)
         full_name = user_name
     else:
-        # Если это команда /start
         first_name = message.from_user.first_name or ""
         last_name = message.from_user.last_name or ""
         full_name = f"{first_name} {last_name}".strip()
     
-#     with open('img/start bot.png', 'rb') as photo:
-#         bot.send_photo(
-#             message.chat.id, 
-#             photo, 
-#             caption=f"""<b>Привет, {full_name}! 👋</b>
-
-# Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
-
-# 🎁 Новым пользователям дарим <b>15 дней</b>!!!
-
-# <b>Наши преимущества:</b>
-# - <b>Скорость:</b> Без ограничений, летай в соцсетях и смотри видео в 4K.⚡
-# - <b>Цена:</b> Всего <b>60 рублей</b> в месяц — дешевле чашки кофе!😍
-# - <b>Устройства:</b> Подключай до <b>10 устройств</b> на одну подписку.📲
-
-# <b>Доступен на всех платформах:</b>
-# iOS & Android 📱
-# Windows, macOS & Linux 💻
-# """,
-#             parse_mode='html',
-#             reply_markup=startmarkups)
-    bot.send_message(
-    message.chat.id, 
-    f"""<b>Привет, {full_name}! 👋</b>
+    caption_text = f"""<b>Привет, {full_name}! 👋</b>
 
 Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
 
@@ -132,10 +157,26 @@ def main(message, user_name = None):
 <b>Доступен на всех платформах:</b>
 iOS & Android 📱
 Windows, macOS & Linux 💻
-""",
-    parse_mode='html',
-    reply_markup=startmarkups
-    )   
+"""
+
+    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    try:
+        if START_PHOTO_ID:
+            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
+            bot.send_photo(message.chat.id, START_PHOTO_ID, caption=caption_text, 
+                           parse_mode='html', reply_markup=startmarkups)
+        else:
+            # Если это первый запуск после рестарта, читаем файл с диска
+            with open('img/re_Start.png', 'rb') as photo:
+                sent_msg = bot.send_photo(message.chat.id, photo, caption=caption_text, 
+                                          parse_mode='html', reply_markup=startmarkups)
+                # Сохраняем полученный от Telegram ID в переменную
+                START_PHOTO_ID = sent_msg.photo[-1].file_id
+                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке фото: {e}")
+        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
+        bot.send_message(message.chat.id, caption_text, parse_mode='html', reply_markup=startmarkups)
         
 # действия с кнопками
 @bot.callback_query_handler(func=lambda callback: True)
@@ -204,25 +245,29 @@ def callback_message(callback):
         u_id = callback.from_user.id
         balance = db.get_user_balance(u_id)
         
-        # Оставляем проверку минимального баланса (хотя бы на 1 день)
         if balance < 2: 
             bot.answer_callback_query(callback.id, "❌ Недостаточно средств (нужно минимум 2₽)", show_alert=True)
             return
 
         try:
-            # Создаем ключ в Outline
+            # 1. Сначала жестко чистим "призрака", если он есть (is_active = False)
+            vpn_data = db.get_user_vpn_data(u_id)
+            if vpn_data and vpn_data[3] == False:
+                db.delete_vpn_key_final(u_id) 
+            
+            # 2. Создаем новый ключ
             new_key = client.create_key()
             client.rename_key(new_key.key_id, f"User_{u_id}")
-
             mask_url = f"{new_key.access_url}&prefix=POST%20"          
-            # Просто записываем ключ в базу, а списывать будет планировщик по 2р
+            
+            # 3. Записываем в базу
             db.add_vpn_key(u_id, new_key.key_id, f"Key_{u_id}", mask_url)
             
             bot.answer_callback_query(callback.id, "✅ Доступ активирован!")
             show_devices_menu(callback.message, u_id)
             
         except Exception as e:
-            print(f"Ошибка: {e}")
+            print(f"❌ Ошибка: {e}")
             bot.send_message(callback.message.chat.id, "❌ Ошибка при создании ключа.")
 
     # Кнопка "Мои ключи" (Список для удаления)
@@ -232,28 +277,23 @@ def callback_message(callback):
 
 
     elif callback.data.startswith('del_'):
-        # Получаем ID из callback_data
-        raw_id = callback.data.split('_')[1] 
         u_id = callback.from_user.id
+        # vpn_data: (server_key_id, access_url, expiry_date, is_active)
+        vpn_data = db.get_user_vpn_data(u_id)
         
-        bot.answer_callback_query(callback.id)
-        
-        # Пробуем удаление
-        try:
-            # 1. Библиотека Outline часто требует INT для удаления ключа
-            if client:
-                client.delete_key(int(raw_id)) # Пробуем превратить в число
-        except Exception as e:
-            print(f"⚠️ Сервер Outline не смог удалить (возможно уже нет): {e}")
-
-        try:
-            # 2. А в базе мы ищем как строку (TEXT)
-            db.delete_vpn_key(str(raw_id)) 
+        if vpn_data:
+            try:
+                # 1. Удаляем ключ физически из Outline
+                client.delete_key(vpn_data[0])
+            except:
+                pass # Если на сервере уже нет, просто идем дальше
             
-            bot.send_message(callback.message.chat.id, "🗑 Устройство удалено.")
-            show_devices_menu(callback.message, u_id)
-        except Exception as e:
-            print(f"❌ Ошибка БД: {e}")
+            # 2. Удаляем запись из базы полностью
+            db.delete_vpn_key_final(u_id)
+            
+            bot.answer_callback_query(callback.id, "🗑 Ключ полностью удален")
+            # Возвращаем пользователя в меню создания
+            show_devices_menu(callback.message, u_id)   
 
     elif callback.data.startswith('pause_'):
         sk_id = callback.data.split('_')[1]
@@ -379,29 +419,33 @@ def callback_message(callback):
                                 reply_markup=markup, parse_mode='HTML')
             
 
-# Реальная оплата через API
     elif callback.data.startswith("pay_"):
-        amount = float(callback.data.split("_")[1])
+        amount = int(float(callback.data.split("_")[1])) # ЮKassa любит целые числа или строки
         user_id = callback.from_user.id
 
-        markup = types.InlineKeyboardMarkup()
-        # Ведем на официальный домен кассы для вида
-        markup.add(types.InlineKeyboardButton("💳 Оплатить банковской картой", url="https://yookassa.ru/"))
-        markup.add(types.InlineKeyboardButton("⬅️ Назад к тарифам", callback_data="top_up"))
-        
-        bot.edit_message_text(
-            f"💠 <b>Пополнение баланса: {int(amount)} ₽</b>\n\n"
-            f"Для завершения оплаты нажмите на кнопку ниже. "
-            f"Вы будете перенаправлены на защищенную страницу платежной системы ЮKassa.\n\n"
-            f"📍 Назначение: Пополнение баланса Argent Proxy\n"
-            f"📍 Сумма: {int(amount)} ₽\n"
-            f"📍 Номер заказа: <code>{user_id}</code>\n\n"
-            f"<i>После оплаты баланс обновится автоматически в течение 1-2 минут.</i>",
-            callback.message.chat.id,
-            callback.message.message_id,
-            reply_markup=markup,
-            parse_mode='HTML'
-        )
+        try:
+            # 1. Генерируем реальную ссылку через API ЮKassa
+            payment_url = create_payment(user_id, amount)
+
+            markup = types.InlineKeyboardMarkup()
+            # 2. Подставляем сгенерированную ссылку в кнопку
+            markup.add(types.InlineKeyboardButton("💳 Перейти к оплате", url=payment_url))
+            markup.add(types.InlineKeyboardButton("⬅️ Назад к тарифам", callback_data="top_up"))
+            
+            bot.edit_message_text(
+                f"💠 <b>Пополнение баланса: {amount} ₽</b>\n\n"
+                f"Нажмите кнопку ниже, чтобы перейти на защищенную страницу оплаты <b>ЮKassa</b>.\n\n"
+                f"📍 <b>Сумма:</b> {amount} ₽\n"
+                f"📍 <b>ID пользователя:</b> <code>{user_id}</code>\n\n"
+                f"<i>После подтверждения платежа банком, средства будут зачислены на ваш баланс автоматически.</i>",
+                callback.message.chat.id,
+                callback.message.message_id,
+                reply_markup=markup,
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            print(f"Ошибка при создании платежа: {e}")
+            bot.answer_callback_query(callback.id, "❌ Ошибка при формировании счета. Попробуйте позже.")
 
 # раздел с инструкцией
 @bot.message_handler(commands=['instructions'])
@@ -539,28 +583,34 @@ def show_profile(message, user_name=None, user_id=None):
 def show_devices_menu(message, user_id):
     vpn_data = db.get_user_vpn_data(user_id)
     markup = types.InlineKeyboardMarkup()
-    
-    if vpn_data:
-        # server_key_id, access_url, expiry_date, is_active
+
+    # Если записи в базе вообще нет — предлагаем создать
+    if not vpn_data: 
+        text = "<b>📱 У вас пока нет созданных ключей.</b>"
+        markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
+    else:
+        # vpn_data: (server_key_id, access_url, expiry_date, is_active)
         server_key_id, access_url, _, is_active = vpn_data
         
-        status_emoji = "🟢 Работает" if is_active else "🔴 На паузе (деньги не списываются)"
-        text =f'''<b>Статус:</b> {status_emoji}
+        if is_active:
+            status_text = "🟢 Работает"
+            # Если работает — показываем кнопку ПАУЗЫ
+            action_button = types.InlineKeyboardButton("⏸ Приостановить (Пауза)", callback_data=f"pause_{server_key_id}")
+        else:
+            status_text = "🔴 На паузе (деньги не списываются)"
+            # Если на паузе — показываем кнопку ЗАПУСКА
+            action_button = types.InlineKeyboardButton("▶️ Запустить", callback_data=f"resume_{server_key_id}")
+
+        text = f'''<b>Статус:</b> {status_text}
 <b>Ключ:</b> 
 <code>{access_url}</code>
-        
+            
 <i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
         
-        if is_active:
-            markup.add(types.InlineKeyboardButton("⏸ Приостановить (Пауза)", callback_data=f"pause_{server_key_id}"))
-        else:
-            markup.add(types.InlineKeyboardButton("▶️ Запустить", callback_data=f"resume_{server_key_id}"))
-
+        markup.add(action_button)
         markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{server_key_id}"))
-    else:
-        text = "<b>📱 У вас пока нет активных ключей.</b>"
-        markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
 
+    # Общие кнопки
     markup.add(types.InlineKeyboardButton("📖 Инструкция", callback_data="instuct"))
     markup.add(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
@@ -596,28 +646,39 @@ def daily_billing_job():
             except:
                 pass
 
-# коннект
-# 1. Сначала создаем объект планировщика
+# --- НАСТРОЙКА ПЛАНИРОВЩИКА ---
+def clear_memory():
+    print("🧹 Принудительная очистка памяти...")
+    gc.collect()
+
+# 1. Создаем объект планировщика
 scheduler = BackgroundScheduler()
 
-# 2. Добавляем задачу (проверка раз в час)
-# Напоминаю: убедись, что функция check_subscriptions определена выше в коде
+# 2. Добавляем задачи
+# Ежедневное списание в 00:00
 scheduler.add_job(daily_billing_job, 'cron', hour=0, minute=0)
+# Очистка памяти каждые 30 минут (интервальная задача)
+scheduler.add_job(clear_memory, 'interval', minutes=30)
 
-# 3. Блок запуска
+# --- БЛОК ЗАПУСКА ---
 if __name__ == "__main__":
     try:
-        # 1. Сначала запускаем планировщик
+        # 1. Сначала запускаем планировщик (он теперь следит и за деньгами, и за памятью)
         scheduler.start()
-        print("✅ Планировщик подписок запущен!")
+        print("✅ Планировщик запущен (списания + очистка памяти)!")
 
         # 2. Инициализируем базу
         db.init_db()
 
-        # 3. ЗАПУСКАЕМ FLASK ДЛЯ ВЕБХУКОВ (в отдельном потоке)
-        # daemon=True значит, что поток закроется вместе с ботом
+        # 3. ЗАПУСКАЕМ FLASK ДЛЯ ВЕБХУКОВ
+        flask_thread = threading.Thread(
+            target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+        )
+        flask_thread.daemon = True 
+        flask_thread.start()
+        print("✅ Flask-сервер для ЮKassa запущен на порту 5000!")
 
-        # 4. И только в самом конце — бесконечный цикл бота
+        # 4. Основной цикл бота
         print("🚀 Бот вышел на связь...")
         bot.polling(none_stop=True)
 
