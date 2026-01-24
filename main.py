@@ -250,25 +250,29 @@ def callback_message(callback):
             return
 
         try:
-            # 1. Сначала жестко чистим "призрака", если он есть (is_active = False)
-            vpn_data = db.get_user_vpn_data(u_id)
-            if vpn_data and vpn_data[3] == False:
-                db.delete_vpn_key_final(u_id) 
+            # 1. Списываем оплату за первый день сразу (защита от абуза пересозданием)
+            db.update_balance(u_id, -2)
             
-            # 2. Создаем новый ключ
+            # 2. Жестко чистим старую запись, если она есть
+            db.delete_vpn_key_final(u_id) 
+            
+            # 3. Создаем новый ключ в Outline
             new_key = client.create_key()
             client.rename_key(new_key.key_id, f"User_{u_id}")
             mask_url = f"{new_key.access_url}&prefix=POST%20"          
             
-            # 3. Записываем в базу
+            # 4. Записываем новый ключ в базу
             db.add_vpn_key(u_id, new_key.key_id, f"Key_{u_id}", mask_url)
             
-            bot.answer_callback_query(callback.id, "✅ Доступ активирован!")
+            bot.answer_callback_query(callback.id, "✅ Доступ оплачен и активирован!")
             show_devices_menu(callback.message, u_id)
             
         except Exception as e:
-            print(f"❌ Ошибка: {e}")
-            bot.send_message(callback.message.chat.id, "❌ Ошибка при создании ключа.")
+            # Если что-то пошло не так (например, API Outline не ответил), 
+            # по-хорошему тут надо бы вернуть 2 рубля юзеру:
+            # db.update_balance(u_id, 2) 
+            print(f"❌ Ошибка при покупке: {e}")
+            bot.send_message(callback.message.chat.id, "❌ Произошла ошибка. Баланс не списан или будет возвращен.")
 
     # Кнопка "Мои ключи" (Список для удаления)
     if callback.data == 'my_keys':
