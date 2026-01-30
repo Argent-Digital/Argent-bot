@@ -122,6 +122,17 @@ def add_vpn_key(user_id, server_key_id, key_name, access_url):
     cur.close()
     conn.close()
 
+def get_user_access_url(user_id):
+    """Возвращает только ссылку (ключ) пользователя"""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Берем только вторую колонку (access_url)
+    cur.execute('SELECT access_url FROM vpn_keys WHERE user_id = %s AND is_active = TRUE', (user_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result[0] if result else None
+
 def get_user_vpn_data(user_id):
     """Получает все данные о ключе пользователя для меню"""
     conn = get_connection()

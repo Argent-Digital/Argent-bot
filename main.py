@@ -98,8 +98,6 @@ def main(message, user_name = None):
     global START_PHOTO_ID # Обращаемся к нашей глобальной переменной
     
     if hasattr(message, 'from_user') and message.from_user.is_bot:
-        # Пытаемся достать ID того, кто нажал кнопку, если это возможно
-        # Но проще всего заставить main всегда проверять реального юзера:
         user_id = message.chat.id # В личке ID чата и ID юзера СОВПАДАЮТ
     else:
         user_id = message.from_user.id
@@ -150,11 +148,10 @@ def main(message, user_name = None):
 
     # Клавиатура
     startmarkups = types.InlineKeyboardMarkup()
+    startmarkups.row(types.InlineKeyboardButton('Подключить 📲', callback_data='my_keys'))
     startmarkups.row(types.InlineKeyboardButton('Профиль👤', callback_data='home'))
-    startmarkups.row(types.InlineKeyboardButton("Наш канал⚡", url="https://t.me/ArgentVPNru"))
-    startmarkups.row(types.InlineKeyboardButton('Инструкция📖', callback_data='instuct'))
     startmarkups.row(types.InlineKeyboardButton("О сервисе ℹ️", callback_data="about_service"), 
-                     types.InlineKeyboardButton('Поддержка 🆘', callback_data='helping'))
+                     types.InlineKeyboardButton("канал⚡", url="https://t.me/ArgentVPNru"))
 
     # Формируем имя
     full_name = final_name
@@ -164,11 +161,6 @@ def main(message, user_name = None):
 Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
 
 🎁 Новым пользователям дарим <b>15 дней</b>!!!
-
-<b>Наши преимущества:</b>
-- <b>Скорость:</b> Без ограничений, летай в соцсетях и смотри видео в 4K.⚡
-- <b>Цена:</b> Всего <b>60 рублей</b> в месяц — дешевле чашки кофе!😍
-- <b>Устройства:</b> Подключай до <b>10 устройств</b> на одну подписку.📲
 
 <b>Доступен на всех платформах:</b>
 iOS & Android 📱
@@ -639,6 +631,9 @@ def show_profile(message, user_name=None, user_id=None):
     profmarkups.row(support, back)
 
     # 5. Формируем текст
+
+    channel_link = "https://t.me/ArgentVPNru"
+
     text = f'''
 <b>👤 Профиль</b>
                      
@@ -648,8 +643,10 @@ def show_profile(message, user_name=None, user_id=None):
 <b>Хватит на:</b> {expiry_info} дней.
 
 <i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!</i>
+
+<b>⚡ Наш канал: <a href='{channel_link}'>Подписаться</a></b>
 '''
-    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=profmarkups)
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=profmarkups, link_preview_options=types.LinkPreviewOptions(is_disabled=True))
     
 # меню ключей
 def show_devices_menu(message, user_id):
@@ -669,16 +666,15 @@ def show_devices_menu(message, user_id):
 
 <b>1. Скопируйте этот ключ:</b> 
 <code>{access_url}</code>
-<b>2. Скачайте приложение Outline</b> (Ссылки в инструкции).
+<b>2. Скачайте приложение Outline.</b>
 <b>3. Нажмите «Добавить сервер» и вставьте ключ.</b>
 
 <i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
-        
         markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{server_key_id}"))
 
     # Общие кнопки
-    markup.add(types.InlineKeyboardButton("📖 Инструкция", callback_data="instuct"))
-    markup.add(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
+    markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data="instuct"))
+    markup.row(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
     try:
         bot.edit_message_text(text, message.chat.id, message.message_id, reply_markup=markup, parse_mode='HTML')
