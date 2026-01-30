@@ -169,15 +169,6 @@ def get_all_active_keys():
     conn.close()
     return data
 
-def update_vpn_status(user_id, status):
-    """Переключение активности (для паузы списаний)"""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute('UPDATE vpn_keys SET is_active = %s WHERE user_id = %s', (status, user_id))
-    conn.commit()
-    cur.close()
-    conn.close()
-
 def delete_vpn_key(server_key_id):
     """Мягкое удаление: помечает ключ как неактивный для финального списания"""
     conn = get_connection()
