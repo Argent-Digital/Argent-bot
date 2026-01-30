@@ -499,6 +499,26 @@ def callback_message(callback):
             print(f"Ошибка при создании платежа: {e}")
             bot.answer_callback_query(callback.id, "❌ Ошибка при формировании счета. Попробуйте позже.")
 
+    elif callback.data == "confirm_send":
+        if callback.from_user.id != ADMIN_ID: # Еще одна проверка прямо перед запуском
+            return
+        # Убираем кнопки у превью
+        bot.edit_message_reply_markup(callback.message.chat.id, callback.message.message_id, reply_markup=None)
+        bot.send_message(callback.message.chat.id, "🚀 Рассылка запущена...")
+        
+        # Получаем юзеров и запускаем поток
+        all_users = db.get_all_user_ids()
+        # Проверяем, что сообщение вообще есть в памяти
+        if 'broadcast_message' in globals():
+            threading.Thread(target=send_broadcast, args=(broadcast_message, all_users)).start()
+        else:
+            bot.send_message(callback.message.chat.id, "❌ Ошибка: сообщение потеряно. Попробуй заново.")
+        
+    elif callback.data == "cancel_send":
+        # Убираем кнопки
+        bot.edit_message_reply_markup(callback.message.chat.id, callback.message.message_id, reply_markup=None)
+        bot.send_message(callback.message.chat.id, "🚫 Рассылка отменена.")
+
 # раздел с инструкцией
 @bot.message_handler(commands=['instructions'])
 def send_instruction_menu(message):
@@ -665,11 +685,13 @@ def show_devices_menu(message, user_id):
     except:
         bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode='HTML')
 
+# Админ команды
+ADMIN_ID = 1306570088  
+
 # админ команда на зачисление
 @bot.message_handler(commands=['gift'])
 def gift_balance(message):
     # Проверка, что команду пишет админ (замени на свой ID)
-    ADMIN_ID = 1306570088  
     if message.from_user.id != ADMIN_ID:
         return
 
@@ -705,12 +727,57 @@ def gift_balance(message):
         bot.reply_to(message, "❌ ID и сумма должны быть числами!")
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
-       
+
+# админ команда на рассылку
+def send_broadcast(admin_msg, user_ids):
+    count = 0
+    blocked = 0
+    
+    for uid in user_ids:
+        try:
+            # Копируем сообщение админа юзеру (текст, медиа, кнопки — всё сохранится)
+            bot.copy_message(chat_id=uid, from_chat_id=admin_msg.chat.id, message_id=admin_msg.message_id)
+            count += 1
+            
+            # Пауза 0.1 сек (10 сообщений в секунду), чтобы Telegram не забанил
+            time.sleep(0.1) 
+            
+        except Exception as e:
+            # Сюда попадут те, кто заблокировал бота
+            blocked += 1
+            print(f"Ошибка при отправке пользователю {uid}: {e}")
+            
+    # Когда цикл закончился, пишем админу отчет
+    bot.send_message(admin_msg.chat.id, f"✅ Рассылка завершена!\n\n📈 Успешно: {count}\n🚫 Заблокировали бота: {blocked}")
+
+@bot.message_handler(commands=['broadcast'])
+def broadcast_command(message):
+    if message.from_user.id == ADMIN_ID:
+        msg = bot.send_message(message.chat.id, "Отправь пост, который хочешь разослать:")
+        bot.register_next_step_handler(msg, confirm_broadcast)
+
+# 2. Показываем превью и кнопки
+def confirm_broadcast(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    # Создаем кнопки
+    markup = types.InlineKeyboardMarkup()
+    btn_yes = types.InlineKeyboardButton("✅ Да, рассылаем", callback_data="confirm_send")
+    btn_no = types.InlineKeyboardButton("❌ Отмена", callback_data="cancel_send")
+    markup.add(btn_yes, btn_no)
+    global broadcast_message
+    broadcast_message = message
+
+    # Пересылаем сообщение админу еще раз с кнопками подтверждения
+    bot.copy_message(message.chat.id, message.chat.id, message.message_id, reply_markup=markup)
+
+
 # вкид фото
 @bot.message_handler(content_types=['photo'])
 def get_photo(message):
     bot.send_message(message.chat.id, 'Крутое фото👍')
 
+# биллинг
 def daily_billing_job():
     print("⏳ Запуск ежедневного списания (2 ₽)...")
     active_keys = db.get_all_active_keys() # Получаем только тех, у кого is_active = True

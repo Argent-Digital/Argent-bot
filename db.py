@@ -198,3 +198,18 @@ def get_referrals_count(user_id):
     cur.close()
     conn.close()
     return count
+
+def get_all_user_ids():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # Выбираем только user_id из таблицы users
+        cur.execute("SELECT user_id FROM users;")
+        rows = cur.fetchall()
+        return [row[0] for row in rows]
+    except Exception as e:
+        print(f"❌ Ошибка при получении списка юзеров: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
