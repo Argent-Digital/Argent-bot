@@ -112,32 +112,32 @@ def main(message, user_name = None):
     username = message.chat.username if hasattr(message.chat, 'username') else None
     if not username and message.from_user and not message.from_user.is_bot:
         username = message.from_user.username
-
-    db.add_user(user_id, username, final_name, None)
-    
-    if not db.get_user_status(user_id):
-        send_captcha(message)
-        return
     
     # Реферальная логика
     referrer_id = None
-    args = message.text.split()
-    if len(args) > 1:
-        try:
-            potential_referrer = int(args[1])
-            if potential_referrer != user_id:
-                referrer_id = potential_referrer
-        except:
-            pass
+    if hasattr(message, 'text') and message.text:
+        args = message.text.split()
+        if len(args) > 1:
+            try:
+                potential_referrer = int(args[1])
+                if potential_referrer != user_id:
+                    referrer_id = potential_referrer
+            except:
+                pass
 
-    user_data = db.get_user_vpn_data(user_id) 
-    is_new_user = user_data is None
+    is_new_user = db.get_user_balance(user_id) is None
+    print(f"Юзер {user_id} новый? {is_new_user}") # ПРОВЕРКА
 
     db.add_user(user_id, username, final_name, referrer_id)
+
+    if not db.get_user_status(user_id):
+        send_captcha(message)
+        return
+
     if is_new_user and referrer_id:
         db.update_balance(referrer_id, 20)
         try:
-            bot.send_message(referrer_id, "🎁 Вам начислено <b>10 дней</b> за приглашение друга!", parse_mode='html')
+            bot.send_message(referrer_id, "🎁 Вам начислено <b>20 ₽</b> за приглашение друга!", parse_mode='html')
         except:
             pass
 
@@ -224,22 +224,40 @@ def callback_message(callback):
         bot.answer_callback_query(callback.id, "🤖 Пожалуйста, пройдите проверку на робота")
         return
 
-    # --- БЛОК КАПЧИ ---
+# --- БЛОК КАПЧИ ---
     if callback.data.startswith('captcha_'):
         _, user_answer, correct_answer = callback.data.split('_')
         
         if user_answer == correct_answer:
-            db.set_user_verified(u_id) # Твоя функция из db.py
+            # 1. Сначала узнаем, был ли юзер уже подтвержден
+            was_verified = db.get_user_status(u_id)
+            
+            # 2. Подтверждаем юзера (ставим is_verified = True)
+            db.set_user_verified(u_id)
             bot.answer_callback_query(callback.id, "✅ Проверка пройдена!")
+            
+            # 3. ЛОГИКА НАЧИСЛЕНИЯ (только если это ПЕРВОЕ прохождение капчи)
+            if not was_verified:
+                # ВОТ ТУТ используем новую функцию из db.py
+                ref_id = db.get_referrer(u_id) 
+                
+                if ref_id:
+                    db.update_balance(ref_id, 20)
+                    try:
+                        bot.send_message(ref_id, "🎁 Вам начислено <b>20 ₽</b> за приглашение друга!", parse_mode='html')
+                    except Exception as e:
+                        print(f"Не удалось отправить уведомление рефереру: {e}")
+
             bot.delete_message(callback.message.chat.id, callback.message.message_id)
-            # После успеха отправляем в главное меню
+            
+            # 4. После успеха запускаем main, чтобы показать меню
             main(callback.message, user_name=callback.from_user.first_name)
+            
         else:
             bot.answer_callback_query(callback.id, "❌ Неверно, попробуй еще раз!", show_alert=True)
             bot.delete_message(callback.message.chat.id, callback.message.message_id)
             send_captcha(callback.message)
-        return # Важно! Прерываем выполнение, чтобы не идти в if callback.data == "home"
-    # ------------------
+        return
 
     global client
     if callback.data == "home":

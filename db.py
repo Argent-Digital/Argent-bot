@@ -75,13 +75,12 @@ def set_user_verified(user_id):
 def add_user(user_id, username, first_name, referrer_id=None):
     conn = get_connection()
     cur = conn.cursor()
-    # Используем UPSERT (обновляем имя, если юзер уже был)
+    # ON CONFLICT DO NOTHING гарантирует, что если юзер уже есть в базе,
+    # его данные (включая referrer_id) не изменятся.
     cur.execute('''
-        INSERT INTO users (user_id, username, first_name, balance, referrer_id)
-        VALUES (%s, %s, %s, 30, %s)
-        ON CONFLICT (user_id) DO UPDATE 
-        SET username = EXCLUDED.username, 
-            first_name = EXCLUDED.first_name;
+        INSERT INTO users (user_id, username, first_name, referrer_id, balance)
+        VALUES (%s, %s, %s, %s, 30)
+        ON CONFLICT (user_id) DO NOTHING;
     ''', (user_id, username, first_name, referrer_id))
     conn.commit()
     cur.close()
@@ -209,6 +208,17 @@ def get_referrals_count(user_id):
     cur.close()
     conn.close()
     return count
+
+def get_referrer(user_id):
+    """Узнает, КТО пригласил этого юзера (возвращает ID пригласителя)"""
+    conn = get_connection()
+    cur = conn.cursor()
+    # Мы ищем referrer_id для конкретного новичка
+    cur.execute('SELECT referrer_id FROM users WHERE user_id = %s', (user_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result[0] if result and result[0] else None
 
 def get_all_user_ids():
     conn = get_connection()
