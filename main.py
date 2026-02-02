@@ -274,13 +274,17 @@ def callback_message(callback):
 
     # функции для установки из инструкции
     elif callback.data == 'android':
-        bot.send_message(callback.message.chat.id, 'Ссылка на установку в Google play 👉: https://play.google.com/store/apps/details?id=org.outline.android.client&pcampaignid=web_share')
+        bot.send_message(
+            callback.message.chat.id, 
+            "Ссылка на установку в Google Play 👉: <a href='https://play.google.com/store/apps/details?id=org.outline.android.client&pcampaignid=web_share'><b>Установить</b></a>",
+            parse_mode='html', disable_web_page_preview=True
+        )
     elif callback.data == 'ios':
-        bot.send_message(callback.message.chat.id, 'Ссылка на установку в App Store 👉: https://apps.apple.com/us/app/outline-app/id1356177741')
+        bot.send_message(callback.message.chat.id, "Ссылка на установку в App Store 👉: <a href='https://apps.apple.com/us/app/outline-app/id1356177741'><b>Установить</b></a>", parse_mode='html', disable_web_page_preview=True)
     elif callback.data == 'mac':
-        bot.send_message(callback.message.chat.id, 'Ссылка на установку в App Store для Mac 👉: https://apps.apple.com/us/app/outline-secure-internet-access/id1356178125?mt=12')
+        bot.send_message(callback.message.chat.id, "Ссылка на установку в App Store для Mac 👉: <a href='https://apps.apple.com/us/app/outline-secure-internet-access/id1356178125?mt=12'><b>Установить</b></a>", parse_mode='html', disable_web_page_preview=True)
     elif callback.data == 'win':
-        winsetup_id = "BQACAgIAAxkBAANsaV1LoQKyU_tHKMIW3QqwZjTVQfcAAneRAALl4ulKC4UWPPhd4m84BA" # Вставь сюда длинную строку
+        winsetup_id = "BQACAgIAAxkBAANsaV1LoQKyU_tHKMIW3QqwZjTVQfcAAneRAALl4ulKC4UWPPhd4m84BA"
         bot.send_document(callback.message.chat.id, winsetup_id, caption="Установщик для Windows💻")
     elif callback.data == 'lin':
         linsetup_id = "BQACAgIAAxkBAANzaV1XzyM0KeYie7pAUJcHRDrCbM0AAmeSAALl4ulKAAHUnL7E_gABFTgE"
@@ -472,14 +476,17 @@ def callback_message(callback):
             markup.add(types.InlineKeyboardButton("🌙 1 Месяц — 60 ₽", callback_data="pay_60"))
             markup.add(types.InlineKeyboardButton("☀️ 2 Месяца — 120 ₽", callback_data="pay_120"))
             markup.add(types.InlineKeyboardButton("⭐ 3 Месяца — 180 ₽", callback_data="pay_180"))
-            # Можно добавить кнопку произвольной суммы, если хочешь
             markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="back_to_profile"))
+
+            try:
+                bot.delete_message(callback.message.chat.id, callback.message.message_id)
+            except:
+                pass
             
-            bot.edit_message_text("<b>💳 Выберите тарифный план:</b>\n\n"
-                                "<i>Деньги будут зачислены на баланс, списание происходит ежедневно по 2 ₽.</i>", 
-                                callback.message.chat.id, callback.message.message_id, 
-                                reply_markup=markup, parse_mode='HTML')
-            
+            bot.send_message(callback.message.chat.id,  
+                         "<b>💳 Выберите тарифный план:</b>\n\n"
+                         "<i>Деньги будут зачислены на баланс, списание происходит ежедневно по 2 ₽.</i>", 
+                         reply_markup=markup, parse_mode='HTML')
 
     elif callback.data.startswith("pay_"):
         amount = int(float(callback.data.split("_")[1])) # ЮKassa любит целые числа или строки
@@ -530,6 +537,8 @@ def callback_message(callback):
         bot.send_message(callback.message.chat.id, "🚫 Рассылка отменена.")
 
 # раздел с инструкцией
+MANUAL_PHOTO_ID = None
+
 @bot.message_handler(commands=['instructions'])
 def send_instruction_menu(message):
     try:
@@ -549,8 +558,8 @@ def send_instruction_menu(message):
     instuctmarkups.row (win)
     instuctmarkups.row(back)
              
-    bot.send_message(message.chat.id,
-        f"""
+
+    text = f"""
 <b>Инструкция по подключению Argent Proxy 🚀</b>
 
 1️⃣ <b>Скачайте приложение Outline.</b>
@@ -567,8 +576,27 @@ def send_instruction_menu(message):
 — Нажмите кнопку <b>"Подключиться"</b>.
 
 ✅ <b>Готово! Теперь вы под защитой.</b>
-""",
-    parse_mode='html', disable_web_page_preview=True, reply_markup=instuctmarkups)
+"""
+    
+    global MANUAL_PHOTO_ID
+    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    try:
+        if MANUAL_PHOTO_ID:
+            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
+            bot.send_photo(message.chat.id, MANUAL_PHOTO_ID, caption=text, 
+                           parse_mode='html', reply_markup=instuctmarkups)
+        else:
+            # Если это первый запуск после рестарта, читаем файл с диска
+            with open('img/inst.png', 'rb') as photo:
+                sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
+                                          parse_mode='html', reply_markup=instuctmarkups)
+                # Сохраняем полученный от Telegram ID в переменную
+                MANUAL_PHOTO_ID = sent_msg.photo[-1].file_id
+                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке фото: {e}")
+        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
+        bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=instuctmarkups)
 
 
 # поддержка
@@ -592,6 +620,8 @@ def support_mes(message, back_target="back_to_main"):
     )
 
 # профиль ВАЖНО
+PROFILE_PHOTO_ID = None
+
 @bot.message_handler(commands=['profile'])
 def show_profile(message, user_name=None, user_id=None):
     try:
@@ -664,10 +694,32 @@ def show_profile(message, user_name=None, user_id=None):
 
 <b>⚡ Наш канал: <a href='{channel_link}'>Подписаться</a></b>
 '''
-    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=profmarkups, link_preview_options=types.LinkPreviewOptions(is_disabled=True))
     
+    global PROFILE_PHOTO_ID
+    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    try:
+        if PROFILE_PHOTO_ID:
+            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
+            bot.send_photo(message.chat.id, PROFILE_PHOTO_ID, caption=text, 
+                           parse_mode='html', reply_markup=profmarkups)
+        else:
+            # Если это первый запуск после рестарта, читаем файл с диска
+            with open('img/profile.png', 'rb') as photo:
+                sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
+                                          parse_mode='html', reply_markup=profmarkups)
+                # Сохраняем полученный от Telegram ID в переменную
+                PROFILE_PHOTO_ID = sent_msg.photo[-1].file_id
+                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке фото: {e}")
+        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
+        bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=profmarkups)
+
 # меню ключей
+KEY_PHOTO_ID = None
+
 def show_devices_menu(message, user_id):
+    global KEY_PHOTO_ID
     vpn_data = db.get_user_vpn_data(user_id)
     markup = types.InlineKeyboardMarkup()
 
@@ -695,9 +747,28 @@ def show_devices_menu(message, user_id):
     markup.row(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
     try:
-        bot.edit_message_text(text, message.chat.id, message.message_id, reply_markup=markup, parse_mode='HTML')
+        bot.delete_message(message.chat.id, message.message_id)
     except:
-        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode='HTML')
+        pass
+
+        # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    try:
+        if KEY_PHOTO_ID:
+            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
+            bot.send_photo(message.chat.id, KEY_PHOTO_ID, caption=text, 
+                           parse_mode='html', reply_markup=markup)
+        else:
+            # Если это первый запуск после рестарта, читаем файл с диска
+            with open('img/key_menu.png', 'rb') as photo:
+                sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
+                                          parse_mode='html', reply_markup=markup)
+                # Сохраняем полученный от Telegram ID в переменную
+                KEY_PHOTO_ID = sent_msg.photo[-1].file_id
+                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке фото: {e}")
+        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
+        bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 # Админ команды
 ADMIN_ID = 1306570088  
