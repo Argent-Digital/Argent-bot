@@ -1,6 +1,8 @@
 import psycopg2
 from psycopg2 import sql
 from datetime import datetime, timedelta
+import subprocess
+import json
 
 # Подключение
 DB_CONFIG = {
@@ -234,3 +236,53 @@ def get_all_user_ids():
     finally:
         cur.close()
         conn.close()
+
+def get_mega_stats():
+    # 1. Считаем всё из базы (Юзеры, Активные ключи, Баланс)
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT 
+            (SELECT count(*) FROM users) as total_users,
+            (SELECT count(*) FROM vpn_keys WHERE is_active = TRUE) as active_keys
+    ''')
+    db_total, db_keys = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    # 2. Трафик из vnstat (за сегодня)
+    try:
+        traffic_raw = subprocess.check_output(['vnstat', '--json']).decode('utf-8')
+        traffic_data = json.loads(traffic_raw)
+        
+        # Берем данные за сегодня
+        stats_today = traffic_data['interfaces'][0]['traffic']['day'][-1]
+        
+        # vnstat в JSON обычно отдает в Байтах (Bytes). 
+        # Делим на 1024^3, чтобы получить честные Гигабайты (GiB)
+        rx_raw = stats_today['rx']
+        tx_raw = stats_today['tx']
+        
+        # Проверка: если число слишком огромное, значит делим на 1024^3 (из байт)
+        # Если маленькое — значит vnstat уже в чем-то другом отдал.
+        rx = round(rx_raw / (1024**3), 2)
+        tx = round(tx_raw / (1024**3), 2)
+        total_gb = round(rx + tx, 2)
+        
+        # Если после деления на 1024^3 получили 0.0, 
+        # значит там были не байты, а КБ (делим на 1024^2)
+        if total_gb < 0.01:
+            rx = round(rx_raw / (1024**2), 2)
+            tx = round(tx_raw / (1024**2), 2)
+            total_gb = round(rx + tx, 2)
+
+    except Exception as e:
+        rx = tx = total_gb = "ошибка"
+        
+    return {
+        "users": db_total,
+        "keys": db_keys,
+        "traffic": total_gb,
+        "rx": rx,
+        "tx": tx
+    }

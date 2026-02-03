@@ -536,6 +536,14 @@ def callback_message(callback):
         bot.edit_message_reply_markup(callback.message.chat.id, callback.message.message_id, reply_markup=None)
         bot.send_message(callback.message.chat.id, "🚫 Рассылка отменена.")
 
+    elif callback.data == "adm_mes":
+        broadcast_command(callback.message)
+
+    elif callback.data == "gift":
+        msg = bot.send_message(callback.message.chat.id, "👤 Введи **ID** пользователя, которому хочешь начислить баланс:", parse_mode='Markdown')
+        bot.register_next_step_handler(msg, process_gift_id)
+
+
 # раздел с инструкцией
 MANUAL_PHOTO_ID = None
 
@@ -774,26 +782,24 @@ def show_devices_menu(message, user_id):
 ADMIN_ID = 1306570088  
 
 # админ команда на зачисление
-@bot.message_handler(commands=['gift'])
-def gift_balance(message):
-    # Проверка, что команду пишет админ (замени на свой ID)
-    if message.from_user.id != ADMIN_ID:
-        return
-
+def process_gift_id(message):
     try:
-        # Разбиваем команду: /gift 1234567 100
-        args = message.text.split()
-        if len(args) != 3:
-            bot.reply_to(message, "❌ Формат: `/gift ID СУММА`", parse_mode='Markdown')
-            return
+        target_id = int(message.text)
+        msg = bot.send_message(message.chat.id, f"💰 Теперь введи **сумму** для начисления пользователю `{target_id}`:", parse_mode='Markdown')
+        # Передаем target_id в следующий шаг через лямбду
+        bot.register_next_step_handler(msg, lambda m: process_gift_amount(m, target_id))
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ ID должен быть числом. Попробуй еще раз зайти через кнопку.")
 
-        target_id = int(args[1])
-        amount = int(args[2])
+def process_gift_amount(message, target_id):
+    try:
+        amount = int(message.text)
+        
+        # Твоя логика обновления БД
+        # Убедись, что метод update_balance существует в твоем объекте db
+        db.update_balance(target_id, amount) 
 
-        # 1. Обновляем баланс в базе
-        db.update_balance(target_id, amount)
-
-        # 2. Отправляем красивое уведомление пользователю
+        # Уведомление юзеру
         success_text = f"""
 💰 <b>Баланс пополнен!</b>
 
@@ -804,14 +810,12 @@ def gift_balance(message):
 """
         try:
             bot.send_message(target_id, success_text, parse_mode='HTML')
-            bot.reply_to(message, f"✅ Успешно! {amount}₽ начислено юзеру {target_id}")
+            bot.send_message(message.chat.id, f"✅ Успешно! {amount}₽ начислено юзеру {target_id}")
         except Exception as e:
-            bot.reply_to(message, f"✅ Баланс пополнен, но не удалось отправить сообщение (возможно, бот заблокирован): {e}")
+            bot.send_message(message.chat.id, f"✅ Баланс пополнен, но не удалось уведомить юзера: {e}")
 
     except ValueError:
-        bot.reply_to(message, "❌ ID и сумма должны быть числами!")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Ошибка: {e}")
+        bot.send_message(message.chat.id, "❌ Сумма должна быть числом. Начни заново с нажатия кнопки.")
 
 # админ команда на рассылку
 def send_broadcast(admin_msg, user_ids):
@@ -825,8 +829,7 @@ def send_broadcast(admin_msg, user_ids):
             count += 1
             
             # Пауза 0.1 сек (10 сообщений в секунду), чтобы Telegram не забанил
-            time.sleep(0.1) 
-            
+            time.sleep(0.05)            
         except Exception as e:
             # Сюда попадут те, кто заблокировал бота
             blocked += 1
@@ -835,7 +838,6 @@ def send_broadcast(admin_msg, user_ids):
     # Когда цикл закончился, пишем админу отчет
     bot.send_message(admin_msg.chat.id, f"✅ Рассылка завершена!\n\n📈 Успешно: {count}\n🚫 Заблокировали бота: {blocked}")
 
-@bot.message_handler(commands=['broadcast'])
 def broadcast_command(message):
     if message.from_user.id == ADMIN_ID:
         msg = bot.send_message(message.chat.id, "Отправь пост, который хочешь разослать:")
@@ -845,17 +847,43 @@ def broadcast_command(message):
 def confirm_broadcast(message):
     if message.from_user.id != ADMIN_ID:
         return
-    # Создаем кнопки
+    
+    global broadcast_message
+    broadcast_message = message # Запоминаем пост
+
     markup = types.InlineKeyboardMarkup()
     btn_yes = types.InlineKeyboardButton("✅ Да, рассылаем", callback_data="confirm_send")
     btn_no = types.InlineKeyboardButton("❌ Отмена", callback_data="cancel_send")
     markup.add(btn_yes, btn_no)
-    global broadcast_message
-    broadcast_message = message
 
-    # Пересылаем сообщение админу еще раз с кнопками подтверждения
-    bot.copy_message(message.chat.id, message.chat.id, message.message_id, reply_markup=markup)
+    # ОБЯЗАТЕЛЬНО: Отправляем админу вопрос с кнопками
+    bot.send_message(message.chat.id, "Пост принят. Начинаем рассылку?", reply_markup=markup)
 
+@bot.message_handler(commands=['pltn'])
+def admin_dashboard(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    s = db.get_mega_stats()
+    text = (
+        "💠 **Управление ArgentVPN**\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "👥 **Аудитория:**\n"
+        f"├ Юзеров в БД: `{s['users']}`"
+        f"└ Активных ключей: `{s['keys']}`\n"
+        "📡 **Трафик (Today):**\n"
+        f"├ Входящий: `{s['rx']} GiB`"
+        f"├ Исходящий: `{s['tx']} GiB`\n"
+        f"└ **Всего: {s['traffic']} GiB**\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+    )
+
+    markups = types.InlineKeyboardMarkup()
+    mes = types.InlineKeyboardButton("Рассылка", callback_data="adm_mes")
+    bal = types.InlineKeyboardButton("Зачисление", callback_data="gift")
+    markups.row(mes, bal)
+
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markups)
 
 # вкид фото
 @bot.message_handler(content_types=['photo'])
