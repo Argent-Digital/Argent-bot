@@ -5,9 +5,12 @@ import requests
 import urllib3
 import gc
 import time
+import pytz
+from datetime import datetime
 import functools
 import telebot
 from telebot import types
+from pytz import timezone
 from flask import Flask, request, jsonify, abort
 from apscheduler.schedulers.background import BackgroundScheduler
 from yookassa.domain.notification import WebhookNotificationFactory
@@ -890,36 +893,99 @@ def admin_dashboard(message):
 def get_photo(message):
     bot.send_message(message.chat.id, 'Крутое фото👍')
 
+@bot.message_handler(commands=['testme'])
+def test_billing_me(message):
+    """Тест биллинга ТОЛЬКО на себе"""
+    user_id = message.from_user.id
+    
+    # Проверяем, есть ли у тебя ключ
+    user_key = db.get_user_vpn_data(user_id)
+    if not user_key:
+        bot.reply_to(message, "❌ У тебя нет VPN ключа для теста")
+        return
+    
+    server_key_id, access_url, expiry_date, is_active = user_key
+    balance = db.get_user_balance(user_id)
+    
+    if balance >= 2:
+        # Тестовое списание
+        db.update_balance(user_id, -2)
+        new_balance = db.get_user_balance(user_id)
+        bot.reply_to(message, 
+            f"🧪 Тест успешен!\n"
+            f"Списано: 2 рубля\n"
+            f"Баланс: {balance} → {new_balance} руб")
+    else:
+        bot.reply_to(message,
+            f"🧪 Тест: недостаточно средств\n"
+            f"Нужно: 2 руб\n"
+            f"Есть: {balance} руб\n"
+            f"При реальном биллинге ключ был бы удален")
+
 # биллинг
 def daily_billing_job():
-    print("⏳ Запуск ежедневного списания (2 ₽)...")
-    active_keys = db.get_all_active_keys() # Получаем только тех, у кого is_active = True
+    """Ежедневное списание - ключ либо работает, либо удаляется"""
+    print(f"💰 [{datetime.now().strftime('%H:%M')}] Начинаю ежедневное списание...")
     
-    for key in active_keys:
-        user_id, server_key_id = key
-        balance = db.get_user_balance(user_id)
+    try:
+        # Получаем ВСЕХ пользователей с ключами
+        all_keys = db.get_all_active_keys()  # Теперь это ВСЕ ключи
+        print(f"   📊 Всего ключей в системе: {len(all_keys)}")
         
-        if balance >= 2:
-            # Списываем 2 рубля
-            db.update_balance(user_id, -2)
-        else:
-            # Денег нет — выключаем доступ
-            db.update_vpn_status(user_id, False) # Меняем is_active на False
-            if client:
-                client.add_data_limit(server_key_id, 1) # Блокируем в Outline
-            
+        for user_id, server_key_id in all_keys:
             try:
-                bot.send_message(user_id, "⚠️ Ваш баланс менее 2₽. Сервис временно отключен. Пополните баланс для продолжения.")
-            except:
-                pass
+                balance = db.get_user_balance(user_id)
+                
+                if balance >= 2:
+                    # СПИСЫВАЕМ 2 РУБЛЯ
+                    db.update_balance(user_id, -2)
+                    print(f"✅ С {user_id} списано 2 рубля. Баланс: {balance} → {balance-2}")
+                    
+                else:
+                    # ДЕНЕГ НЕТ - УДАЛЯЕМ КЛЮЧ ПОЛНОСТЬЮ
+                    print(f"🚫 У {user_id} мало денег ({balance} руб). Удаляю ключ...")
+                    
+                    # 1. Удаляем из Outline
+                    try:
+                        if 'client' in globals() and client:
+                            client.delete_key(server_key_id)  # УДАЛЯЕМ, а не блокируем
+                            print(f"   🔒 Ключ удален из Outline")
+                    except Exception as e:
+                        print(f"   ⚠️ Не удалось удалить из Outline: {e}")
+                    
+                    # 2. Удаляем из базы
+                    try:
+                        db.delete_vpn_key_final(user_id)  # Эта функция уже есть у вас!
+                        print(f"   🗑️ Ключ удален из базы")
+                    except Exception as e:
+                        print(f"   ⚠️ Не удалось удалить из базы: {e}")
+                    
+                    # 3. Отправляем уведомление
+                    try:
+                        bot.send_message(user_id, 
+                            "⚠️ *Ваш баланс менее 2₽*\n"
+                            "VPN ключ был удален.\n"
+                            "Пополните баланс и создайте новый ключ.",
+                            parse_mode='Markdown')
+                    except:
+                        pass
+                        
+            except Exception as e:
+                print(f"⚠️ Ошибка с пользователем {user_id}: {e}")
+                continue
+        
+        print(f"✅ Ежедневное списание завершено!")
+        
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
 
 # --- НАСТРОЙКА ПЛАНИРОВЩИКА ---
 def clear_memory():
     print("🧹 Принудительная очистка памяти...")
     gc.collect()
 
-# 1. Создаем объект планировщика
-scheduler = BackgroundScheduler()
+moscow_tz = timezone('Europe/Moscow')
+scheduler = BackgroundScheduler(timezone=moscow_tz)
 
 # 2. Добавляем задачи
 # Ежедневное списание в 00:00

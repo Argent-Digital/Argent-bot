@@ -172,10 +172,11 @@ def update_vpn_expiry(user_id, new_date, status):
     conn.close()
 
 def get_all_active_keys():
+    """Версия для случая "ключ либо есть, либо нет" """
     conn = get_connection()
     cur = conn.cursor()
-    # Берем только тех, у кого ключ активен
-    cur.execute('SELECT user_id, server_key_id FROM vpn_keys WHERE is_active = TRUE')
+    # Просто берем всех, у кого есть ключ в таблице
+    cur.execute('SELECT user_id, server_key_id FROM vpn_keys')
     data = cur.fetchall()
     cur.close()
     conn.close()
