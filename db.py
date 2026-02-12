@@ -82,6 +82,7 @@ def add_user(user_id, username, first_name, referrer_id=None):
     cur.execute('''
         INSERT INTO users (user_id, username, first_name, referrer_id, balance)
         VALUES (%s, %s, %s, %s, 30)
+        ON CONFLICT (user_id) DO NOTHING;
     ''', (user_id, username[:50], first_name[:50], referrer_id))
     conn.commit()
     cur.close()
