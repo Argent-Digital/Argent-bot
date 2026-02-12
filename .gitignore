@@ -1,0 +1,14 @@
+# Игнорим всё
+/*
+
+# Но сохраняем нужное
+!/src/
+!/db.py
+!/main.py
+!/requirements.txt
+!/README.md
+!.gitignore
+
+# Внутри разрешённых папок тоже можно точечно игнорить
+/src/__pycache__/
+/src/*.pyc
