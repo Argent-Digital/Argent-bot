@@ -81,8 +81,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
 # --- 2. НАСТРОЙКИ OUTLINE ---      
-api_url = "https://194.41.113.168:62468/j7UAACvTcgwC8fOFU3qojg"
-cert_sha256 = "21C5C9A862E9BCE996E018759A7A448FA6504804459F00D52D8B77529798E85C"
+api_url = "https://127.0.0.1:34948/XYlwAHZTyMakxbncCceK3Q"
+cert_sha256 = "FBFA0615B942567CB52B5FA0ACFE6DACFEE4B0128342E5FA76E9732FB03F834A"
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -95,11 +95,15 @@ except Exception as e:
 bot = telebot.TeleBot('8195901758:AAFg_179LBV84ryKgbBAr0v0jRactmfxdP0')
 START_PHOTO_ID = None  # Сюда бот сам запишет ID после первой отправки
 
+broadcast_message = None
+
 # start
 @bot.message_handler(commands=['start'])
 def main(message, user_name = None):
     global START_PHOTO_ID # Обращаемся к нашей глобальной переменной
     
+    bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
+
     if hasattr(message, 'from_user') and message.from_user.is_bot:
         user_id = message.chat.id # В личке ID чата и ID юзера СОВПАДАЮТ
     else:
@@ -115,6 +119,8 @@ def main(message, user_name = None):
     username = message.chat.username if hasattr(message.chat, 'username') else None
     if not username and message.from_user and not message.from_user.is_bot:
         username = message.from_user.username
+
+    safe_username = (username[:50] if username else None)
     
     # Реферальная логика
     referrer_id = None
@@ -131,7 +137,7 @@ def main(message, user_name = None):
     is_new_user = db.get_user_balance(user_id) is None
     print(f"Юзер {user_id} новый? {is_new_user}") # ПРОВЕРКА
 
-    db.add_user(user_id, username, final_name, referrer_id)
+    db.add_user(user_id, safe_username, final_name, referrer_id)
 
     if not db.get_user_status(user_id):
         send_captcha(message)
@@ -333,29 +339,28 @@ def callback_message(callback):
             return
 
         try:
-            # 1. Списываем оплату за первый день сразу (защита от абуза пересозданием)
             db.update_balance(u_id, -2)
-            
-            # 2. Жестко чистим старую запись, если она есть
             db.delete_vpn_key_final(u_id) 
             
-            # 3. Создаем новый ключ в Outline
-            new_key = client.create_key()
-            client.rename_key(new_key.key_id, f"User_{u_id}")
-            mask_url = f"{new_key.access_url}&prefix=POST%20"          
+            # Создаем ключ
+            new_key = client.create_key() # Просто создаем, имя зададим отдельно
             
-            # 4. Записываем новый ключ в базу
-            db.add_vpn_key(u_id, new_key.key_id, f"Key_{u_id}", mask_url)
+            # Пытаемся определить правильные атрибуты ключа (зависит от версии либы)
+            k_id = getattr(new_key, 'key_id', getattr(new_key, 'id', None))
+            k_url = getattr(new_key, 'access_url', getattr(new_key, 'access_key', None))
+
+            client.rename_key(k_id, f"User_{u_id}")
+            mask_url = f"{k_url}&prefix=POST%20"          
+            
+            db.add_vpn_key(u_id, k_id, f"Key_{u_id}", mask_url)
             
             bot.answer_callback_query(callback.id, "✅ Доступ оплачен и активирован!")
             show_devices_menu(callback.message, u_id)
             
         except Exception as e:
-            # Если что-то пошло не так (например, API Outline не ответил), 
-            # по-хорошему тут надо бы вернуть 2 рубля юзеру:
-            # db.update_balance(u_id, 2) 
-            print(f"❌ Ошибка при покупке: {e}")
-            bot.send_message(callback.message.chat.id, "❌ Произошла ошибка. Баланс не списан или будет возвращен.")
+            db.update_balance(u_id, 2) 
+            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}") # ЭТО ВАЖНО: смотрим в консоль!
+            bot.send_message(callback.message.chat.id, f"❌ Ошибка API: {e}")
 
     # Кнопка "Мои ключи" (Список для удаления)
     if callback.data == 'my_keys':
@@ -530,7 +535,11 @@ def callback_message(callback):
         all_users = db.get_all_user_ids()
         # Проверяем, что сообщение вообще есть в памяти
         if 'broadcast_message' in globals():
-            threading.Thread(target=send_broadcast, args=(broadcast_message, all_users)).start()
+            threading.Thread(
+            target=send_broadcast, 
+            args=(broadcast_message, all_users), 
+            daemon=True # Чтобы поток не мешал выключению бота, если что
+                ).start()
         else:
             bot.send_message(callback.message.chat.id, "❌ Ошибка: сообщение потеряно. Попробуй заново.")
         
@@ -540,7 +549,10 @@ def callback_message(callback):
         bot.send_message(callback.message.chat.id, "🚫 Рассылка отменена.")
 
     elif callback.data == "adm_mes":
-        broadcast_command(callback.message)
+        # Вместо broadcast_command(callback.message)
+        # Сразу просим отправить пост:
+        msg = bot.send_message(callback.message.chat.id, "📢 Отправь пост для рассылки:")
+        bot.register_next_step_handler(msg, confirm_broadcast)
 
     elif callback.data == "gift":
         msg = bot.send_message(callback.message.chat.id, "👤 Введи **ID** пользователя, которому хочешь начислить баланс:", parse_mode='Markdown')
@@ -841,7 +853,7 @@ def send_broadcast(admin_msg, user_ids):
     # Когда цикл закончился, пишем админу отчет
     bot.send_message(admin_msg.chat.id, f"✅ Рассылка завершена!\n\n📈 Успешно: {count}\n🚫 Заблокировали бота: {blocked}")
 
-def broadcast_command(message):
+def broadcast_command(message, user_id):
     if message.from_user.id == ADMIN_ID:
         msg = bot.send_message(message.chat.id, "Отправь пост, который хочешь разослать:")
         bot.register_next_step_handler(msg, confirm_broadcast)

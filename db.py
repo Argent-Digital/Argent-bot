@@ -77,16 +77,23 @@ def set_user_verified(user_id):
 def add_user(user_id, username, first_name, referrer_id=None):
     conn = get_connection()
     cur = conn.cursor()
-    # ON CONFLICT DO NOTHING гарантирует, что если юзер уже есть в базе,
-    # его данные (включая referrer_id) не изменятся.
-    cur.execute('''
-        INSERT INTO users (user_id, username, first_name, referrer_id, balance)
-        VALUES (%s, %s, %s, %s, 30)
-        ON CONFLICT (user_id) DO NOTHING;
-    ''', (user_id, username[:50], first_name[:50], referrer_id))
-    conn.commit()
-    cur.close()
-    conn.close()
+    
+    # Защита от None: если данных нет, записываем None или дефолтное имя
+    safe_username = username[:50] if username else None
+    safe_first_name = first_name[:50] if first_name else "Пользователь"
+    
+    try:
+        cur.execute('''
+            INSERT INTO users (user_id, username, first_name, referrer_id, balance)
+            VALUES (%s, %s, %s, %s, 30)
+            ON CONFLICT (user_id) DO NOTHING;
+        ''', (user_id, safe_username, safe_first_name, referrer_id))
+        conn.commit()
+    except Exception as e:
+        print(f"❌ Ошибка в базе данных при добавлении юзера: {e}")
+    finally:
+        cur.close()
+        conn.close()
 
 def get_user_balance(user_id):
     conn = get_connection()
