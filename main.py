@@ -99,30 +99,33 @@ broadcast_message = None
 
 # start
 @bot.message_handler(commands=['start'])
-def main(message, user_name = None):
-    global START_PHOTO_ID # Обращаемся к нашей глобальной переменной
+def main(message, user_name = None, user_login = None):
+    global START_PHOTO_ID
     
+    # 1. Сразу чистим прошлые шаги, чтобы не было конфликтов
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
-    if hasattr(message, 'from_user') and message.from_user.is_bot:
-        user_id = message.chat.id # В личке ID чата и ID юзера СОВПАДАЮТ
-    else:
-        user_id = message.from_user.id
+    user_id = message.chat.id 
 
+    # 2. Определяем имя юзера (приоритеты: переданное -> из ТГ -> дефолт)
     if user_name:
         final_name = user_name
-    elif message.from_user and not message.from_user.is_bot:
+    elif message.from_user:
         final_name = message.from_user.first_name
     else:
         final_name = "Пользователь"
 
-    username = message.chat.username if hasattr(message.chat, 'username') else None
-    if not username and message.from_user and not message.from_user.is_bot:
+    # 3. Собираем юзернейм
+    if user_login:
+        username = user_login
+    elif message.from_user and not message.from_user.is_bot:
         username = message.from_user.username
+    else:
+        username = None
 
     safe_username = (username[:50] if username else None)
     
-    # Реферальная логика
+    # 4. Реферальная логика (теперь без всяких skip_captcha)
     referrer_id = None
     if hasattr(message, 'text') and message.text:
         args = message.text.split()
@@ -134,15 +137,13 @@ def main(message, user_name = None):
             except:
                 pass
 
+    # 5. Проверяем, новый ли юзер, и пишем в базу
     is_new_user = db.get_user_balance(user_id) is None
-    print(f"Юзер {user_id} новый? {is_new_user}") # ПРОВЕРКА
+    print(f"Юзер {user_id} новый? {is_new_user}") 
 
     db.add_user(user_id, safe_username, final_name, referrer_id)
 
-    if not db.get_user_status(user_id):
-        send_captcha(message)
-        return
-
+    # 6. Начисление рефереру (теперь происходит СРАЗУ)
     if is_new_user and referrer_id:
         db.update_balance(referrer_id, 20)
         try:
@@ -150,22 +151,20 @@ def main(message, user_name = None):
         except:
             pass
 
+    # 7. Удаляем само сообщение /start для чистоты чата
     try:
         bot.delete_message(message.chat.id, message.message_id)
     except:
         pass
 
-    # Клавиатура
+    # --- КЛАВИАТУРА И ТЕКСТ ---
     startmarkups = types.InlineKeyboardMarkup()
     startmarkups.row(types.InlineKeyboardButton('Подключить 📲', callback_data='my_keys'))
     startmarkups.row(types.InlineKeyboardButton('Профиль👤', callback_data='home'))
     startmarkups.row(types.InlineKeyboardButton("О сервисе ℹ️", callback_data="about_service"), 
                      types.InlineKeyboardButton("канал⚡", url="https://t.me/ArgentVPNru"))
 
-    # Формируем имя
-    full_name = final_name
-    
-    caption_text = f"""<b>Привет, {full_name}! 👋</b>
+    caption_text = f"""<b>Привет, {final_name}! 👋</b>
 
 Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
 
@@ -176,97 +175,23 @@ iOS & Android 📱
 Windows | macOS | Linux 💻
 """
 
-    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    # 8. Отправка фото
     try:
         if START_PHOTO_ID:
-            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
             bot.send_photo(message.chat.id, START_PHOTO_ID, caption=caption_text, 
                            parse_mode='html', reply_markup=startmarkups)
         else:
-            # Если это первый запуск после рестарта, читаем файл с диска
             with open('img/re_Start.png', 'rb') as photo:
                 sent_msg = bot.send_photo(message.chat.id, photo, caption=caption_text, 
                                           parse_mode='html', reply_markup=startmarkups)
-                # Сохраняем полученный от Telegram ID в переменную
                 START_PHOTO_ID = sent_msg.photo[-1].file_id
-                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
-        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, caption_text, parse_mode='html', reply_markup=startmarkups)
-
-def send_captcha(message):
-    num1 = random.randint(1, 9)
-    num2 = random.randint(1, 9)
-    correct_answer = num1 + num2
-    
-    # Генерируем варианты ответов
-    options = {correct_answer, correct_answer + 1, correct_answer - 1}
-    # Превращаем в список и перемешиваем
-    options = list(options)
-    random.shuffle(options)
-    
-    markup = types.InlineKeyboardMarkup()
-    btns = [types.InlineKeyboardButton(str(opt), callback_data=f"captcha_{opt}_{correct_answer}") for opt in options]
-    markup.add(*btns)
-    
-    text = f"🤖 <b>Проверка на робота!</b>\nСколько будет {num1} + {num2}?"
-    bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode='HTML')
         
-# действия с кнопками
 @bot.callback_query_handler(func=lambda callback: True)
 def callback_message(callback):
     u_id = callback.from_user.id
-    u_name = callback.from_user.first_name
-
-    if not db.get_user_status(u_id) and not callback.data.startswith('captcha_'):
-        # 1. Сначала удаляем старое сообщение, на которое нажал юзер
-        try:
-            bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        except:
-            pass
-        
-        # 2. Сразу же присылаем ему капчу
-        send_captcha(callback.message)
-        
-        # 3. Выдаем уведомление сверху
-        bot.answer_callback_query(callback.id, "🤖 Пожалуйста, пройдите проверку на робота")
-        return
-
-# --- БЛОК КАПЧИ ---
-    if callback.data.startswith('captcha_'):
-        _, user_answer, correct_answer = callback.data.split('_')
-        
-        if user_answer == correct_answer:
-            # 1. Сначала узнаем, был ли юзер уже подтвержден
-            was_verified = db.get_user_status(u_id)
-            
-            # 2. Подтверждаем юзера (ставим is_verified = True)
-            db.set_user_verified(u_id)
-            bot.answer_callback_query(callback.id, "✅ Проверка пройдена!")
-            
-            # 3. ЛОГИКА НАЧИСЛЕНИЯ (только если это ПЕРВОЕ прохождение капчи)
-            if not was_verified:
-                # ВОТ ТУТ используем новую функцию из db.py
-                ref_id = db.get_referrer(u_id) 
-                
-                if ref_id:
-                    db.update_balance(ref_id, 20)
-                    try:
-                        bot.send_message(ref_id, "🎁 Вам начислено <b>20 ₽</b> за приглашение друга!", parse_mode='html')
-                    except Exception as e:
-                        print(f"Не удалось отправить уведомление рефереру: {e}")
-
-            bot.delete_message(callback.message.chat.id, callback.message.message_id)
-            
-            # 4. После успеха запускаем main, чтобы показать меню
-            main(callback.message, user_name=callback.from_user.first_name)
-            
-        else:
-            bot.answer_callback_query(callback.id, "❌ Неверно, попробуй еще раз!", show_alert=True)
-            bot.delete_message(callback.message.chat.id, callback.message.message_id)
-            send_captcha(callback.message)
-        return
 
     global client
     if callback.data == "home":
@@ -306,7 +231,10 @@ def callback_message(callback):
     #поддержка 
     elif callback.data == 'back_to_main':
         name_to_show = callback.from_user.first_name
-        main(callback.message, user_name=name_to_show)
+        login_to_show = callback.from_user.username # Берем логин того, кто нажал на кнопку
+        
+        # Передаем и имя, и логин явно
+        main(callback.message, user_name=name_to_show, user_login=login_to_show)
     
     elif callback.data == 'back_to_profile':
         u_name = f"{callback.from_user.first_name or ''} {callback.from_user.last_name or ''}".strip()
@@ -325,8 +253,12 @@ def callback_message(callback):
 
     # стартовая из профиля
     elif callback.data == 'back_main':
+        # Берем данные именно того человека, который нажал на кнопку
         name_to_show = callback.from_user.first_name
-        main(callback.message, user_name=name_to_show)
+        login_to_show = callback.from_user.username 
+        
+        # Прокидываем логин в функцию main
+        main(callback.message, user_name=name_to_show, user_login=login_to_show)
 
     # --- БЛОК УПРАВЛЕНИЯ VPN КЛЮЧАМИ ---
     # Кнопка "Создать ключ" (или купить)

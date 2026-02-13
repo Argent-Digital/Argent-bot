@@ -54,26 +54,6 @@ def init_db():
     conn.close()
     print("✅ База готова к работе")
 
-# функции капчи
-def get_user_status(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute('SELECT is_verified FROM users WHERE user_id = %s', (user_id,))
-    result = cur.fetchone()
-    cur.close()
-    conn.close()
-    # Если юзера нет в базе или он не верифицирован — вернет False
-    return result[0] if result else False
-
-def set_user_verified(user_id):
-    """Помечает пользователя как прошедшего проверку"""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute('UPDATE users SET is_verified = TRUE WHERE user_id = %s', (user_id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-
 def add_user(user_id, username, first_name, referrer_id=None):
     conn = get_connection()
     cur = conn.cursor()
@@ -102,17 +82,21 @@ def get_user_balance(user_id):
     result = cur.fetchone()
     cur.close()
     conn.close()
-    return result[0] if result else 0
+    # Возвращаем баланс или None, если юзера нет
+    return result[0] if result is not None else None
 
 def update_balance(user_id, amount):
-    """Универсальная функция для + и - баланса"""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute('UPDATE users SET balance = balance + %s WHERE user_id = %s', (amount, user_id))
-    conn.commit()
-    cur.close()
-    conn.close()
-
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute('UPDATE users SET balance = balance + %s WHERE user_id = %s', (amount, user_id))
+        conn.commit()
+    except Exception as e:
+        print(f"❌ Ошибка UPDATE balance: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        
 def add_vpn_key(user_id, server_key_id, key_name, access_url):
     conn = get_connection()
     cur = conn.cursor()
