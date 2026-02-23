@@ -80,8 +80,18 @@ class XUIPanel:
             
             data = res.json()
             if data.get("success"):
-                # Ссылка (проверь IP еще раз на всякий случай)
-                vless_link = f"vless://{client_uuid}@89.169.53.247:10000?type=ws&path=%2F#Argent-speed_{user_id}"
+                # Собираем эталонную ссылку, копируя параметры твоего рабочего инбаунда
+                # Важно: path должен быть именно таким, как в панели!
+                ip = "89.169.53.247"
+                port = 10000
+                path = "%2Fargent-vless%2F" 
+                
+                vless_link = (
+                    f"vless://{client_uuid}@{ip}:{port}?"
+                    f"type=ws&encryption=none&path={path}&host=&security=none"
+                    f"#Argent-speed_{user_id}"
+                )
+                
                 return vless_link, client_uuid
             else:
                 return None, f"PANEL_REJECT: {data.get('msg')}"

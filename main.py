@@ -210,8 +210,11 @@ def callback_message(callback):
         show_profile(callback.message, user_name=u_name, user_id=u_id)
         bot.answer_callback_query(callback.id)
 
-    elif callback.data == 'instuct':       
+    elif callback.data == 'instruct':       
         send_instruction_menu(callback.message)
+
+    elif callback.data == "instvless":
+        inst_vless(callback.message)
 
     # функции для установки из инструкции
     elif callback.data == 'android':
@@ -230,6 +233,23 @@ def callback_message(callback):
     elif callback.data == 'lin':
         linsetup_id = "BQACAgIAAxkBAANzaV1XzyM0KeYie7pAUJcHRDrCbM0AAmeSAALl4ulKAAHUnL7E_gABFTgE"
         bot.send_document(callback.message.chat.id, linsetup_id, caption="Файл для Linux💻")
+
+    # для влесс
+    elif callback.data == 'androidv':
+        bot.send_message(
+            callback.message.chat.id, 
+            "Ссылка на установку в Google Play 👉: <a href='https://play.google.com/store/apps/details?id=com.v2raytun.android'><b>Установить</b></a>",
+            parse_mode='html', disable_web_page_preview=True
+        )
+    elif callback.data == 'iosv':
+        bot.send_message(callback.message.chat.id, "Ссылка на установку в App Store 👉: <a href='https://apps.apple.com/app/id6476628951'><b>Установить</b></a>", parse_mode='html', disable_web_page_preview=True)
+    elif callback.data == 'macv':
+        bot.send_message(callback.message.chat.id, "Ссылка на установку в App Store для Mac 👉: <a href='https://apps.apple.com/us/app/v2raytun/id6476628951'><b>Установить</b></a>", parse_mode='html', disable_web_page_preview=True)
+    elif callback.data == 'winv':
+        winsetup_id = "BQACAgIAAxkBAAIRnmmca7oxnbPjjhh9QOSGInApbkilAAJTkAACeWLpSARAM4oHPdVxOgQ"
+        bot.send_document(callback.message.chat.id, winsetup_id, caption="Установщик для Windows💻")
+    elif callback.data == 'linv':
+        bot.send_document(callback.message.chat.id, "Ссылка на установку через репозиторий 👉: <a href='https://github.com/MatsuriDayo/nekoray/releases'><b>Установить</b></a>", parse_mode='html', disable_web_page_preview=True)
 
     elif callback.data== 'back_for_inst':
         name_to_show = callback.from_user.first_name
@@ -544,7 +564,6 @@ def callback_message(callback):
 # раздел с инструкцией
 MANUAL_PHOTO_ID = None
 
-@bot.message_handler(commands=['instructions'])
 def send_instruction_menu(message):
     try:
         bot.delete_message(message.chat.id, message.message_id)
@@ -603,6 +622,63 @@ def send_instruction_menu(message):
         # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=instuctmarkups)
 
+#vless inst
+def inst_vless(message):
+    try:
+        bot.delete_message(message.chat.id, message.message_id)
+    except:
+            pass
+
+    instuctmarkups = types.InlineKeyboardMarkup()
+    android = types.InlineKeyboardButton('Android', callback_data='androidv')
+    ios = types.InlineKeyboardButton('Ios', callback_data='iosv')
+    mac = types.InlineKeyboardButton('MacOS', callback_data='macv')
+    win = types.InlineKeyboardButton('Windows', callback_data='winv')
+    lin = types.InlineKeyboardButton('Linux', callback_data='linv')
+    back = types.InlineKeyboardButton('Вернуться↩️', callback_data='back_for_inst')
+    instuctmarkups.row (android, ios)
+    instuctmarkups.row (mac, lin)
+    instuctmarkups.row (win)
+    instuctmarkups.row(back)
+             
+
+    text = f"""
+<b>Инструкция по подключению Argent Proxy 🚀</b>
+
+1️⃣ <b>Скачайте приложение ниже.</b>
+
+2️⃣ <b>Скопируйте ваш ключ.</b>
+
+3️⃣ <b>Активируйте сервис:</b>
+— Откройте приложение.
+
+— Нажмите кнопку <b>"Добавить сервер"</b> (или иконку ➕).
+
+— Вставьте скопированный ключ и нажмите <b>"Добавить сервер"</b>.
+
+— Нажмите кнопку <b>"Подключиться"</b>.
+
+✅ <b>Готово! Теперь вы под защитой.</b>
+"""
+    global MANUAL_PHOTO_ID
+    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
+    try:
+        if MANUAL_PHOTO_ID:
+            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
+            bot.send_photo(message.chat.id, MANUAL_PHOTO_ID, caption=text, 
+                           parse_mode='html', reply_markup=instuctmarkups)
+        else:
+            # Если это первый запуск после рестарта, читаем файл с диска
+            with open('img/inst.png', 'rb') as photo:
+                sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
+                                          parse_mode='html', reply_markup=instuctmarkups)
+                # Сохраняем полученный от Telegram ID в переменную
+                MANUAL_PHOTO_ID = sent_msg.photo[-1].file_id
+                print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке фото: {e}")
+        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
+        bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=instuctmarkups)
 
 # поддержка
 @bot.message_handler(commands=['support'])
@@ -753,8 +829,9 @@ def show_devices_menu(message, user_id):
         # Кнопка удаления теперь использует правильный ID
         markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
 
+        instsel = "instruct" if protocol == 'outline' else 'instvless'
     # Общие кнопки
-    markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data="instuct"))
+    markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data= instsel))
     markup.row(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
     try:
@@ -903,6 +980,21 @@ def admin_dashboard(message):
 @bot.message_handler(content_types=['photo'])
 def get_photo(message):
     bot.send_message(message.chat.id, 'Крутое фото👍')
+
+# айди дока (временное, потом комент)
+# @bot.message_handler(content_types=['document'])
+# def handle_docs(message):
+#     # Этот код сработает, когда ТЫ (админ) пришлешь файл
+#     file_id = message.document.file_id
+#     file_name = message.document.file_name
+    
+#     bot.reply_to(message, 
+#         f"✅ <b>Файл получен!</b>\n\n"
+#         f"📎 Имя: <code>{file_name}</code>\n"
+#         f"🆔 ID: <code>{file_id}</code>\n\n"
+#         f"Используй этот ID в коде, чтобы отправить файл юзеру.", 
+#         parse_mode='html'
+#     )
 
 @bot.message_handler(commands=['testme'])
 def test_billing_me(message):
