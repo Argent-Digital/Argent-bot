@@ -803,17 +803,15 @@ def show_devices_menu(message, user_id):
     global KEY_PHOTO_ID
     vpn_data = db.get_user_vpn_data(user_id)
     markup = types.InlineKeyboardMarkup()
+    
+    # Сразу задаем значение по умолчанию, чтобы бот не падал
+    instsel = "instruct" 
 
-    # Если записи в базе вообще нет — предлагаем создать
     if not vpn_data: 
         text = "<b>📱 У вас пока нет созданных ключей.</b>"
         markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
     else:
-        # Теперь данных больше: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
-        # Мы распаковываем всё аккуратно
         server_key_id, access_url, _, is_active, protocol, vless_uuid = vpn_data
-
-        # Для удаления нам нужен либо ID аутлайна, либо UUID влесса
         key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
 
         text = f'''
@@ -824,14 +822,15 @@ def show_devices_menu(message, user_id):
 <b>2. Скачайте приложение {'Outline' if protocol == 'outline' else 'в инструкции'}.</b>
 <b>3. Нажмите «Добавить сервер» и вставьте ключ.</b>
 
-<i>Вы можете использовать этот ключ на 10 устройствах одновременно, также советуем ознакомится с полной инструкцией.👇</i>'''
+<i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
         
-        # Кнопка удаления теперь использует правильный ID
         markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
-
+        
+        # Перезаписываем инструкцию в зависимости от протокола
         instsel = "instruct" if protocol == 'outline' else 'instvless'
-    # Общие кнопки
-    markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data= instsel))
+
+    # ТЕПЕРЬ ОБЩИЕ КНОПКИ БУДУТ РАБОТАТЬ ВСЕГДА
+    markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data=instsel))
     markup.row(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
     try:
