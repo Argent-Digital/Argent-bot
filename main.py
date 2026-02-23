@@ -11,12 +11,19 @@ import functools
 import telebot
 from telebot import types
 from pytz import timezone
+from xui_api import XUIPanel
 from flask import Flask, request, jsonify, abort
 from apscheduler.schedulers.background import BackgroundScheduler
 from yookassa.domain.notification import WebhookNotificationFactory
 from yookassa import Configuration, Payment
 
 import db
+
+xui = XUIPanel(
+    base_url="http://89.169.53.247:26618/2NNQgIWtfzb0fuf2lb", 
+    username="yCqFlUXn6D", 
+    password="qWUxdZ6qo3"
+) #Конфигурация для влесс
 
 Configuration.configure('1254528', 'live_6aco-HloIFi4SFGpCXYITwcGnguz26uhEZ4V1imd3zk')
 app = Flask(__name__)
@@ -81,8 +88,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
 # --- 2. НАСТРОЙКИ OUTLINE ---      
-api_url = "https://127.0.0.1:34948/XYlwAHZTyMakxbncCceK3Q"
-cert_sha256 = "FBFA0615B942567CB52B5FA0ACFE6DACFEE4B0128342E5FA76E9732FB03F834A"
+api_url = "https://89.169.53.247:31117/INlqP_eD9Z5K-I91w6iEUA"
+cert_sha256 = "45E4487E4845BEBF66771E3E63538F2FD579AC5C212DE38B2CEBE7160EDDB12D"
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -269,7 +276,15 @@ def callback_message(callback):
         if balance < 2: 
             bot.answer_callback_query(callback.id, "❌ Недостаточно средств (нужно минимум 2₽)", show_alert=True)
             return
+        
+        try:
+            menu_protokol(callback.message, u_id)
 
+        except Exception as e:
+            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}") # ЭТО ВАЖНО: смотрим в консоль!
+            bot.send_message(callback.message.chat.id, f"❌ Ошибка API: {e}")
+            
+    elif callback.data == 'Outline_connect':
         try:
             db.update_balance(u_id, -2)
             db.delete_vpn_key_final(u_id) 
@@ -294,6 +309,33 @@ def callback_message(callback):
             print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}") # ЭТО ВАЖНО: смотрим в консоль!
             bot.send_message(callback.message.chat.id, f"❌ Ошибка API: {e}")
 
+    elif callback.data == "Vless_connect":
+        u_id = callback.from_user.id
+
+        try:
+            # 2. Списываем оплату (2 рубля)
+            db.update_balance(u_id, -2)
+            
+            # 3. Удаляем старый ключ, если он был (чистим место под новый)
+            db.delete_vpn_key_final(u_id) 
+            
+            v_url, v_uuid = xui.add_client(u_id, inbound_id=1)
+                    
+            if v_url and v_uuid:
+                db.add_vpn_key_vless(u_id, v_uuid, f"Vless_{u_id}", v_url)
+                show_devices_menu(callback.message, u_id)
+            else:
+                # v_uuid теперь может содержать текст ошибки (например AUTH_FAILED)
+                raise Exception(f"Детали: {v_uuid}")
+
+        except Exception as e:
+                db.update_balance(u_id, 2)
+                # Бот пришлет тебе саму ошибку. Это даст 100% инфы.
+                error_text = f"❌ ОШИБКА: {str(e)}"
+                print(error_text)
+                bot.send_message(callback.message.chat.id, f"⚠️ Ошибка создания VLESS:\n`{error_text}`", parse_mode="Markdown")
+        
+
     # Кнопка "Мои ключи" (Список для удаления)
     if callback.data == 'my_keys':
             show_devices_menu(callback.message, u_id)
@@ -302,14 +344,22 @@ def callback_message(callback):
 
     elif callback.data.startswith('del_'):
         u_id = callback.from_user.id
-        # vpn_data: (server_key_id, access_url, expiry_date, is_active)
+        # vpn_data теперь: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
         vpn_data = db.get_user_vpn_data(u_id)
         
         if vpn_data:
+            protocol = vpn_data[4]
+            
             try:
-                # 1. Удаляем ключ физически из Outline
-                client.delete_key(vpn_data[0])
-            except:
+                # 1. Удаляем ключ физически с нужного сервера
+                if protocol == 'outline':
+                    client.delete_key(vpn_data[0])
+                elif protocol == 'vless':
+                    v_uuid = vpn_data[5]
+                    if v_uuid:
+                        xui.delete_client(v_uuid) # Тот метод, что мы добавили в xui_api.py
+            except Exception as e:
+                print(f"⚠️ Ошибка при физическом удалении ключа: {e}")
                 pass # Если на сервере уже нет, просто идем дальше
             
             # 2. Удаляем запись из базы полностью
@@ -317,7 +367,7 @@ def callback_message(callback):
             
             bot.answer_callback_query(callback.id, "🗑 Ключ полностью удален")
             # Возвращаем пользователя в меню создания
-            show_devices_menu(callback.message, u_id)   
+            show_devices_menu(callback.message, u_id)
 
     # реферальное меню 
     elif callback.data == "ref_program":
@@ -683,19 +733,25 @@ def show_devices_menu(message, user_id):
         text = "<b>📱 У вас пока нет созданных ключей.</b>"
         markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
     else:
-        # vpn_data: (server_key_id, access_url, expiry_date, is_active)
-        server_key_id, access_url, _, is_active = vpn_data
+        # Теперь данных больше: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
+        # Мы распаковываем всё аккуратно
+        server_key_id, access_url, _, is_active, protocol, vless_uuid = vpn_data
+
+        # Для удаления нам нужен либо ID аутлайна, либо UUID влесса
+        key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
 
         text = f'''
-<b>🚀 Ваш доступ готов!</b>
+<b>🚀 Ваш {protocol.upper()} доступ готов!</b>
 
 <b>1. Скопируйте этот ключ:</b> 
 <code>{access_url}</code>
-<b>2. Скачайте приложение Outline.</b>
+<b>2. Скачайте приложение {'Outline' if protocol == 'outline' else 'V2Ray / Nekobox'}.</b>
 <b>3. Нажмите «Добавить сервер» и вставьте ключ.</b>
 
-<i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
-        markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{server_key_id}"))
+<i>Вы можете использовать этот ключ на 10 устройствах одновременно, также советуем ознакомится с полной инструкцией.👇</i>'''
+        
+        # Кнопка удаления теперь использует правильный ID
+        markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
 
     # Общие кнопки
     markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data="instuct"))
@@ -724,6 +780,17 @@ def show_devices_menu(message, user_id):
         print(f"❌ Ошибка при отправке фото: {e}")
         # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
+
+# меню протокола
+def menu_protokol(message, user_id):
+    markup=types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🚀 VLESS (Скорость)", callback_data="Vless_connect"))
+    markup.add(types.InlineKeyboardButton("🛡 Outline (Резерв)", callback_data="Outline_connect"))
+
+    text="""
+🛜Выберете протокол:
+"""
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 # Админ команды
 ADMIN_ID = 1306570088  
@@ -839,89 +906,105 @@ def get_photo(message):
 
 @bot.message_handler(commands=['testme'])
 def test_billing_me(message):
-    """Тест биллинга ТОЛЬКО на себе"""
+    """Тест биллинга ТОЛЬКО на авторе сообщения"""
     user_id = message.from_user.id
     
-    # Проверяем, есть ли у тебя ключ
+    # Получаем полные данные (6 полей, как мы настроили в db.py)
+    # vpn_data: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
     user_key = db.get_user_vpn_data(user_id)
+    
     if not user_key:
         bot.reply_to(message, "❌ У тебя нет VPN ключа для теста")
         return
     
-    server_key_id, access_url, expiry_date, is_active = user_key
+    # Распаковываем всё, что нам нужно
+    server_key_id, _, _, _, protocol, vless_uuid = user_key
     balance = db.get_user_balance(user_id)
     
     if balance >= 2:
-        # Тестовое списание
+        # Просто списываем 2 рубля для теста
         db.update_balance(user_id, -2)
         new_balance = db.get_user_balance(user_id)
         bot.reply_to(message, 
-            f"🧪 Тест успешен!\n"
+            f"🧪 <b>Тест списания успешен!</b>\n"
+            f"Протокол: <code>{protocol}</code>\n"
             f"Списано: 2 рубля\n"
-            f"Баланс: {balance} → {new_balance} руб")
+            f"Баланс: {balance} → {new_balance} руб", parse_mode='html')
     else:
-        bot.reply_to(message,
-            f"🧪 Тест: недостаточно средств\n"
-            f"Нужно: 2 руб\n"
-            f"Есть: {balance} руб\n"
-            f"При реальном биллинге ключ был бы удален")
+        # Имитируем реальное удаление, которое произошло бы в биллинге
+        bot.reply_to(message, f"🧪 <b>Тест удаления (баланс {balance}₽):</b>", parse_mode='html')
+        
+        try:
+            # 1. Физическое удаление в зависимости от протокола
+            if protocol == 'outline':
+                client.delete_key(server_key_id)
+                bot.send_message(user_id, "✅ Ключ удален из Outline")
+            elif protocol == 'vless':
+                if vless_uuid:
+                    xui.delete_client(vless_uuid)
+                    bot.send_message(user_id, "✅ Ключ удален из 3X-UI")
+            
+            # 2. Удаление из базы бота
+            db.delete_vpn_key_final(user_id)
+            bot.send_message(user_id, "✅ Запись стерта из БД бота. Тест завершен.")
+            
+        except Exception as e:
+            bot.send_message(user_id, f"⚠️ Ошибка при тестовом удалении: {e}")
 
 # биллинг
 def daily_billing_job():
-    """Ежедневное списание - ключ либо работает, либо удаляется"""
+    """Ежедневное списание - универсальное для Outline и VLESS"""
     print(f"💰 [{datetime.now().strftime('%H:%M')}] Начинаю ежедневное списание...")
     
     try:
-        # Получаем ВСЕХ пользователей с ключами
-        all_keys = db.get_all_active_keys()  # Теперь это ВСЕ ключи
-        print(f"   📊 Всего ключей в системе: {len(all_keys)}")
+        all_keys = db.get_all_active_keys() 
+        print(f"   📊 Всего активных ключей: {len(all_keys)}")
         
-        for user_id, server_key_id in all_keys:
+        for user_id, server_key_id, protocol, vless_uuid in all_keys:
             try:
                 balance = db.get_user_balance(user_id)
                 
                 if balance >= 2:
-                    # СПИСЫВАЕМ 2 РУБЛЯ
                     db.update_balance(user_id, -2)
-                    print(f"✅ С {user_id} списано 2 рубля. Баланс: {balance} → {balance-2}")
-                    
+                    print(f"✅ {user_id}: -2 руб. (Протокол: {protocol})")
                 else:
-                    # ДЕНЕГ НЕТ - УДАЛЯЕМ КЛЮЧ ПОЛНОСТЬЮ
-                    print(f"🚫 У {user_id} мало денег ({balance} руб). Удаляю ключ...")
+                    print(f"🚫 У {user_id} баланс {balance} руб. Удаляю {protocol}...")
                     
-                    # 1. Удаляем из Outline
-                    try:
-                        if 'client' in globals() and client:
-                            client.delete_key(server_key_id)  # УДАЛЯЕМ, а не блокируем
-                            print(f"   🔒 Ключ удален из Outline")
-                    except Exception as e:
-                        print(f"   ⚠️ Не удалось удалить из Outline: {e}")
+                    # --- УДАЛЕНИЕ ИЗ ПАНЕЛЕЙ ---
+                    if protocol == 'outline':
+                        try:
+                            client.delete_key(server_key_id)
+                            print(f"   🔒 Удален из Outline")
+                        except Exception as e:
+                            print(f"   ⚠️ Ошибка Outline: {e}")
+                            
+                    elif protocol == 'vless':
+                        try:
+                            if vless_uuid:
+                                xui.delete_client(vless_uuid)
+                                print(f"   🔒 Удален из 3X-UI (VLESS)")
+                        except Exception as e:
+                            print(f"   ⚠️ Ошибка VLESS: {e}")
+
+                    # --- УДАЛЕНИЕ ИЗ БАЗЫ (ОБЩЕЕ) ---
+                    db.delete_vpn_key_final(user_id)
                     
-                    # 2. Удаляем из базы
-                    try:
-                        db.delete_vpn_key_final(user_id)  # Эта функция уже есть у вас!
-                        print(f"   🗑️ Ключ удален из базы")
-                    except Exception as e:
-                        print(f"   ⚠️ Не удалось удалить из базы: {e}")
-                    
-                    # 3. Отправляем уведомление
+                    # Уведомление
                     try:
                         bot.send_message(user_id, 
-                            "⚠️ *Ваш баланс менее 2₽*\n"
-                            "VPN ключ был удален.\n"
-                            "Пополните баланс и создайте новый ключ.",
+                            "⚠️ *Доступ приостановлен*\n\n"
+                            "Баланс менее 2₽, ваш VPN ключ удален.\n"
+                            "Пополните счет и создайте новый ключ в профиле.",
                             parse_mode='Markdown')
                     except:
                         pass
                         
             except Exception as e:
-                print(f"⚠️ Ошибка с пользователем {user_id}: {e}")
-                continue
-        
-        print(f"✅ Ежедневное списание завершено!")
-        
+                print(f"⚠️ Ошибка биллинга юзера {user_id}: {e}")
+                
+        print(f"✅ Биллинг завершен!")
     except Exception as e:
-        print(f"❌ Критическая ошибка: {e}")
+        print(f"❌ Критическая ошибка биллинга: {e}")
 
 # --- НАСТРОЙКА ПЛАНИРОВЩИКА ---
 def clear_memory():

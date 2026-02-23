@@ -3,6 +3,7 @@ from psycopg2 import sql
 from datetime import datetime, timedelta
 import subprocess
 import json
+import uuid
 
 # Подключение
 DB_CONFIG = {
@@ -49,6 +50,12 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     ''')
+
+    cur.execute('''
+        ALTER TABLE vpn_keys ADD COLUMN IF NOT EXISTS protocol TEXT DEFAULT 'outline';
+        ALTER TABLE vpn_keys ADD COLUMN IF NOT EXISTS vless_uuid UUID;
+    ''')
+
     conn.commit()
     cur.close()
     conn.close()
@@ -114,6 +121,35 @@ def add_vpn_key(user_id, server_key_id, key_name, access_url):
     cur.close()
     conn.close()
 
+def add_vpn_key_vless(user_id, vless_uuid, key_name, access_url):
+    print(f"DEBUG DB: Начинаю запись для {user_id}")
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # ПЕРЕДАЕМ UUID КАК СТРОКУ — это решит проблему с адаптацией типа
+        str_uuid = str(vless_uuid) 
+        
+        cur.execute('''
+            INSERT INTO vpn_keys (user_id, vless_uuid, key_name, access_url, protocol, is_active) 
+            VALUES (%s, %s, %s, %s, 'vless', True) 
+            ON CONFLICT (user_id) DO UPDATE SET 
+            vless_uuid = EXCLUDED.vless_uuid, 
+            access_url = EXCLUDED.access_url, 
+            protocol = 'vless',
+            is_active = True
+        ''', (user_id, str_uuid, key_name, access_url))
+        
+        conn.commit()
+        print(f"✅ Ключ VLESS для {user_id} успешно сохранен в БД")
+    except Exception as e:
+        print(f"❌ Ошибка в базе данных VLESS: {e}")
+        # Не забываем пробрасывать, чтобы в main.py сработал откат баланса
+        raise e 
+    finally:
+        cur.close()
+        conn.close()
+
 def get_user_access_url(user_id):
     """Возвращает только ссылку (ключ) пользователя"""
     conn = get_connection()
@@ -126,11 +162,12 @@ def get_user_access_url(user_id):
     return result[0] if result else None
 
 def get_user_vpn_data(user_id):
-    """Получает все данные о ключе пользователя для меню"""
+    """Получает все данные о ключе (универсально для Outline и VLESS)"""
     conn = get_connection()
     cur = conn.cursor()
+    # Добавляем протокол в выборку, чтобы понимать, что это за ключ
     cur.execute('''
-        SELECT server_key_id, access_url, expiry_date, is_active 
+        SELECT server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid
         FROM vpn_keys 
         WHERE user_id = %s
     ''', (user_id,))
@@ -163,15 +200,14 @@ def update_vpn_expiry(user_id, new_date, status):
     conn.close()
 
 def get_all_active_keys():
-    """Версия для случая "ключ либо есть, либо нет" """
     conn = get_connection()
     cur = conn.cursor()
-    # Просто берем всех, у кого есть ключ в таблице
-    cur.execute('SELECT user_id, server_key_id FROM vpn_keys')
-    data = cur.fetchall()
+    # Тянем всё нужное для биллинга
+    cur.execute('SELECT user_id, server_key_id, protocol, vless_uuid FROM vpn_keys WHERE is_active = TRUE')
+    result = cur.fetchall()
     cur.close()
     conn.close()
-    return data
+    return result
 
 def delete_vpn_key(server_key_id):
     """Мягкое удаление: помечает ключ как неактивный для финального списания"""

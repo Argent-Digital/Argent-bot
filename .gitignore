@@ -5,6 +5,7 @@
 !/src/
 !/db.py
 !/main.py
+!/xui_api.py
 !/requirements.txt
 !/README.md
 !.gitignore
