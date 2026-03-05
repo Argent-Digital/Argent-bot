@@ -152,9 +152,9 @@ def main(message, user_name = None, user_login = None):
 
     # 6. Начисление рефереру (теперь происходит СРАЗУ)
     if is_new_user and referrer_id:
-        db.update_balance(referrer_id, 20)
+        db.update_balance(referrer_id, 60)
         try:
-            bot.send_message(referrer_id, "🎁 Вам начислено <b>20 ₽</b> за приглашение друга!", parse_mode='html')
+            bot.send_message(referrer_id, "🌷 Вам начислено <b>60 ₽</b> за приглашение друга!", parse_mode='html')
         except:
             pass
 
@@ -173,9 +173,17 @@ def main(message, user_name = None, user_login = None):
 
     caption_text = f"""<b>Привет, {final_name}! 👋</b>
 
-Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
+Ищешь надежный и быстрый Proxy? Ты по адресу! 🌸
 
 🎁 Новым пользователям дарим <b>15 дней</b>!!!
+
+<b>Argent: Весенний Разнос 🌷
+
+X3 Рефералка: Теперь даем 30 дней за каждого бро (вместо 10).
+
+Промокоды: В канале будут проскакивать коды на бесплатную подписку. Кто успел — тот с быстрым инетом.
+
+Розыгрыш: Полгода подпискы в скором розыгрыше среди юзеров.</b>
 
 <b>Доступен на всех платформах:</b>
 iOS & Android 📱
@@ -405,12 +413,11 @@ def callback_message(callback):
             bot_info = bot.get_me()
             ref_link = f"https://t.me/{bot_info.username}?start={u_id}"
             ref_count = db.get_referrals_count(u_id)
-            total_earned = ref_count * 20 # Твоя ставка 20р за друга
 
             text = f'''
 <b>👥 Реферальная программа</b>
 
-Приглашайте друзей и получайте <b>10 дней подписки</b> на баланс за каждого!👌
+Приглашайте друзей и получайте <b>30 дней подписки</b> на баланс за каждого в честь начала весны!🌷
 <i>Друг также получит приветственный бонус при регистрации.</i>
 
 <b>Ваша ссылка для приглашения:</b>
@@ -419,7 +426,6 @@ def callback_message(callback):
 
 <b>Статистика:</b>
 — Приглашено: <b>{ref_count}</b> чел.
-— Заработано всего: <b>{total_earned} ₽</b>
 '''
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("⬅️ Назад в профиль", callback_data="home"))
@@ -493,9 +499,9 @@ def callback_message(callback):
     elif callback.data == "top_up":
             markup = types.InlineKeyboardMarkup()
             # Кнопки тарифов
-            markup.add(types.InlineKeyboardButton("🌙 1 Месяц — 60 ₽", callback_data="pay_60"))
-            markup.add(types.InlineKeyboardButton("☀️ 2 Месяца — 120 ₽", callback_data="pay_120"))
-            markup.add(types.InlineKeyboardButton("⭐ 3 Месяца — 180 ₽", callback_data="pay_180"))
+            markup.add(types.InlineKeyboardButton("🌱 1 Месяц — 60 ₽", callback_data="pay_60"))
+            markup.add(types.InlineKeyboardButton("🌸 2 Месяца — 120 ₽", callback_data="pay_120"))
+            markup.add(types.InlineKeyboardButton("🌷 3 Месяца — 180 ₽", callback_data="pay_180"))
             markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="back_to_profile"))
 
             try:
@@ -522,7 +528,7 @@ def callback_message(callback):
             markup.add(types.InlineKeyboardButton("⬅️ Назад к тарифам", callback_data="top_up"))
             
             bot.edit_message_text(
-                f"💠 <b>Пополнение баланса: {amount} ₽</b>\n\n"
+                f"🌸 <b>Пополнение баланса: {amount} ₽</b>\n\n"
                 f"Нажмите кнопку ниже, чтобы перейти на защищенную страницу оплаты <b>ЮKassa</b>.\n\n"
                 f"📍 <b>Сумма:</b> {amount} ₽\n"
                 f"📍 <b>ID пользователя:</b> <code>{user_id}</code>\n\n"
@@ -774,16 +780,16 @@ def show_profile(message, user_name=None, user_id=None):
     channel_link = "https://t.me/ArgentVPNru"
 
     text = f'''
-<b>👤 Профиль</b>
+<b>🌸 Профиль 🌸</b>
                      
 <b>{display_name}, ваш баланс: {balance} руб.</b>
 
 <b>Статус proxy:</b> {status_text}
 <b>Хватит на:</b> {expiry_info} дней.
 
-<i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!</i>
+<i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!🌱</i>
 
-<b>⚡ Наш канал: <a href='{channel_link}'>Подписаться</a></b>
+<b>🌷 Наш канал: <a href='{channel_link}'>Подписаться</a></b>
 '''
     
     global PROFILE_PHOTO_ID
@@ -835,7 +841,7 @@ def show_devices_menu(message, user_id):
             key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
 
             text = f'''
-<b>🚀 Ваш {protocol.upper()} доступ готов!</b>
+<b>🌸 Ваш {protocol.upper()} доступ готов!</b>
 
 <b>1. Скопируйте этот ключ:</b> 
 <code>{access_url}</code>
@@ -1061,6 +1067,37 @@ def test_billing_me(message):
             
         except Exception as e:
             bot.send_message(user_id, f"⚠️ Ошибка при тестовом удалении: {e}")
+
+# промики
+PROMOS = {
+    "VESNA2026": {"days": 15, "limit": 5, "users": []},
+    "MARCH8": {"days": 10, "limit": 8, "users": []},
+    "ARGENT12": {"days": 12, "limit": 6, "users": []}
+}
+
+@bot.message_handler(commands=['promo'])
+def handle_promo(message):
+    # Берем код после команды /promo ВЕСНА
+    parts = message.text.split()
+    if len(parts) < 2:
+        return bot.reply_to(message, "Введи код, например: /promo ВЕСНА")
+    
+    code = parts[1].upper()
+    user_id = message.from_user.id
+
+    if code in PROMOS:
+        p = PROMOS[code]
+        if len(p["users"]) >= p["limit"]:
+            bot.send_message(message.chat.id, "Сорри, лимит исчерпан! 💨")
+        elif user_id in p["users"]:
+            bot.send_message(message.chat.id, "Ты уже в деле, второй раз нельзя! ✋")
+        else:
+            p["users"].append(user_id)
+            # Твоя магия с БД
+            db.update_balance(user_id, p["days"] * 2)
+            bot.send_message(message.chat.id, f"🌷 Успех! +{p['days']} дней к твоему Argent.")
+    else:
+        bot.send_message(message.chat.id, "Код не катит, чекни правильность.")    
 
 # биллинг
 def daily_billing_job():
