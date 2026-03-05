@@ -331,29 +331,39 @@ def callback_message(callback):
 
     elif callback.data == "Vless_connect":
         u_id = callback.from_user.id
+        vpn_data = db.get_user_vpn_data(u_id) # Сначала берем данные, пока не удалили!
 
         try:
-            # 2. Списываем оплату (2 рубля)
+            # --- ПРОВЕРКА И ЧИСТКА ПЕРЕД СОЗДАНИЕМ ---
+            if vpn_data:
+                protocol = vpn_data[4]
+                v_uuid = vpn_data[5]
+                # Пробуем удалить из панели физически
+                try:
+                    if protocol == 'vless' and v_uuid:
+                        xui.delete_client(v_uuid)
+                    elif protocol == 'outline':
+                        client.delete_key(vpn_data[0])
+                except:
+                    pass # Если на сервере нет — и фиг с ним
+
+                # Теперь удаляем из СВОЕЙ базы
+                db.delete_vpn_key_final(u_id) 
+
+            # --- ТЕПЕРЬ СОЗДАЕМ ЧИСТО ---
             db.update_balance(u_id, -2)
-            
-            # 3. Удаляем старый ключ, если он был (чистим место под новый)
-            db.delete_vpn_key_final(u_id) 
-            
             v_url, v_uuid = xui.add_client(u_id, inbound_id=1)
-                    
+            
             if v_url and v_uuid:
                 db.add_vpn_key_vless(u_id, v_uuid, f"Vless_{u_id}", v_url)
                 show_devices_menu(callback.message, u_id)
             else:
-                # v_uuid теперь может содержать текст ошибки (например AUTH_FAILED)
                 raise Exception(f"Детали: {v_uuid}")
 
         except Exception as e:
-                db.update_balance(u_id, 2)
-                # Бот пришлет тебе саму ошибку. Это даст 100% инфы.
-                error_text = f"❌ ОШИБКА: {str(e)}"
-                print(error_text)
-                bot.send_message(callback.message.chat.id, f"⚠️ Ошибка создания VLESS:\n`{error_text}`", parse_mode="Markdown")
+            db.update_balance(u_id, 2)
+            print(f"❌ Ошибка создания VLESS: {e}")
+            bot.send_message(callback.message.chat.id, f"⚠️ Ошибка:\n`{e}`", parse_mode="Markdown")
         
 
     # Кнопка "Мои ключи" (Список для удаления)
@@ -812,22 +822,32 @@ def show_devices_menu(message, user_id):
         markup.add(types.InlineKeyboardButton("➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn"))
     else:
         server_key_id, access_url, _, is_active, protocol, vless_uuid = vpn_data
-        key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
+        
+        # --- ЗАЩИТА ОТ ТРУПОВ СТАРЫХ СЕРВЕРОВ ---
+        if "194.41.113.168" in str(access_url):
+            text = "<b>📱 Ваш ключ устарел.</b>\n\nКлючи, созданные до 13 февраля, больше не поддерживаются. Пожалуйста, удалите старый доступ и создайте новый (рекомендуем VLESS)."
+            # ID для удаления старья, чтобы кнопка "Удалить" всё же была, если она захочет его снести
+            key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
+            markup.add(types.InlineKeyboardButton("🗑 Удалить старый ключ", callback_data=f"del_{key_id_for_delete}"))
+        
+        else:
+            # ЭТОТ БЛОК ТЕПЕРЬ ТОЛЬКО ДЛЯ НОВЫХ РАБОЧИХ КЛЮЧЕЙ
+            key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
 
-        text = f'''
+            text = f'''
 <b>🚀 Ваш {protocol.upper()} доступ готов!</b>
 
 <b>1. Скопируйте этот ключ:</b> 
 <code>{access_url}</code>
-<b>2. Скачайте приложение {'Outline' if protocol == 'outline' else 'В ИНСТРУКЦИИ!!! <i>(если вы перешли со старого протокола, нужно установить новое)'}.</i></b>
+<b>2. Скачайте приложение {'Outline' if protocol == 'outline' else 'В ИНСТРУКЦИИ!!! <i>(если вы перешли со старого протокола, нужно установить новое)</i>'}.</b>
 <b>3. Нажмите «Добавить сервер» и вставьте ключ.</b>
 
 <i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
-        
-        markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
-        
-        # Перезаписываем инструкцию в зависимости от протокола
-        instsel = "instruct" if protocol == 'outline' else 'instvless'
+            
+            markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
+            
+            # Настройка инструкции
+            instsel = "instruct" if protocol == 'outline' else 'instvless'
 
     # ТЕПЕРЬ ОБЩИЕ КНОПКИ БУДУТ РАБОТАТЬ ВСЕГДА
     markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data=instsel))
