@@ -339,39 +339,56 @@ def callback_message(callback):
 
     elif callback.data == "Vless_connect":
         u_id = callback.from_user.id
-        vpn_data = db.get_user_vpn_data(u_id) # Сначала берем данные, пока не удалили!
+        bot.answer_callback_query(callback.id)
+        vpn_data = db.get_user_vpn_data(u_id)
 
         try:
-            # --- ПРОВЕРКА И ЧИСТКА ПЕРЕД СОЗДАНИЕМ ---
-            if vpn_data:
-                protocol = vpn_data[4]
-                v_uuid = vpn_data[5]
-                # Пробуем удалить из панели физически
+            # 1. Сначала пробуем достать UUID из твоей БД (как и было)
+            v_uuid_to_del = vpn_data[5] if vpn_data and vpn_data[4] == 'vless' else None
+
+            # 2. Если в базе пусто, но мы боимся "призраков" в панели
+            # Нам нужно найти UUID по email 'user_{u_id}'
+            if not v_uuid_to_del:
+                # ВНИМАНИЕ: Тебе нужен метод в xui, который вернет список клиентов
+                # Если его нет, можно сделать по-простому через твой session:
                 try:
-                    if protocol == 'vless' and v_uuid:
-                        xui.delete_client(v_uuid)
-                    elif protocol == 'outline':
-                        client.delete_key(vpn_data[0])
+                    base = xui.base_url.rstrip('/')
+                    # Получаем инфу об инбауннде (там все клиенты)
+                    res = xui.session.get(f"{base}/panel/api/inbounds/get/1")
+                    if res.status_code == 200:
+                        clients = res.json()['obj']['settings'] # Тут лежит JSON со списком
+                        # Ищем среди них нашего юзера
+                        import json
+                        settings_dict = json.loads(clients)
+                        for c in settings_dict['clients']:
+                            if c['email'] == f"user_{u_id}":
+                                v_uuid_to_del = c['id'] # Нашли призрака!
+                                break
                 except:
-                    pass # Если на сервере нет — и фиг с ним
+                    pass
 
-                # Теперь удаляем из СВОЕЙ базы
-                db.delete_vpn_key_final(u_id) 
+            # 3. Если нашли UUID (в базе или в панели) — сносим
+            if v_uuid_to_del:
+                xui.delete_client(v_uuid_to_del)
+                db.delete_vpn_key_final(u_id)
+                import time
+                time.sleep(0.5) # Даем панели "продышаться"
 
-            # --- ТЕПЕРЬ СОЗДАЕМ ЧИСТО ---
+            # --- ДАЛЬШЕ ТВОЯ СТАНДАРТНАЯ ЛОГИКА ---
             db.update_balance(u_id, -2)
             v_url, v_uuid = xui.add_client(u_id, inbound_id=1)
             
             if v_url and v_uuid:
-                db.add_vpn_key_vless(u_id, v_uuid, f"Vless_{u_id}", v_url)
+                db.add_vpn_key_vless(u_id, v_uuid, f"user_{u_id}", v_url)
                 show_devices_menu(callback.message, u_id)
             else:
                 raise Exception(f"Детали: {v_uuid}")
 
         except Exception as e:
+            # Если всё равно вылетает Duplicate, значит UUID в панели другой
+            # и автоматика не справилась. 
             db.update_balance(u_id, 2)
-            print(f"❌ Ошибка создания VLESS: {e}")
-            bot.send_message(callback.message.chat.id, f"⚠️ Ошибка:\n`{e}`", parse_mode="Markdown")
+            bot.send_message(callback.message.chat.id, f"⚠️ Ошибка создания:\n`{e}`")
         
 
     # Кнопка "Мои ключи" (Список для удаления)
@@ -1070,8 +1087,6 @@ def test_billing_me(message):
 
 # промики
 PROMOS = {
-    "VESNA2026": {"days": 15, "limit": 5, "users": []},
-    "MARCH8": {"days": 10, "limit": 8, "users": []},
     "ARGENT12": {"days": 12, "limit": 6, "users": []}
 }
 
