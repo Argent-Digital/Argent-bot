@@ -365,7 +365,6 @@ def callback_message(callback):
             print(f"❌ Ошибка создания VLESS: {e}")
             bot.send_message(callback.message.chat.id, f"⚠️ Ошибка:\n`{e}`", parse_mode="Markdown")
         
-
     # Кнопка "Мои ключи" (Список для удаления)
     if callback.data == 'my_keys':
             show_devices_menu(callback.message, u_id)
