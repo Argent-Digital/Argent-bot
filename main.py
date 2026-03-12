@@ -1,3 +1,4 @@
+import os
 import threading
 import random
 import uuid
@@ -17,15 +18,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from yookassa.domain.notification import WebhookNotificationFactory
 from yookassa import Configuration, Payment
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import db
 
 xui = XUIPanel(
-    base_url="http://89.169.53.247:26618/2NNQgIWtfzb0fuf2lb", 
-    username="yCqFlUXn6D", 
-    password="qWUxdZ6qo3"
+    base_url= os.getenv("ux_url"), 
+    username= os.getenv("ux_username"), 
+    password= os.getenv("ux_pass")
 ) #Конфигурация для влесс
 
-Configuration.configure('1254528', 'live_6aco-HloIFi4SFGpCXYITwcGnguz26uhEZ4V1imd3zk')
+Configuration.configure('1254528', os.getenv("Ykassa_key"))
 app = Flask(__name__)
 
 @app.route('/yookassa_webhook', methods=['POST'])
@@ -76,7 +81,7 @@ def create_payment(user_id, amount):
         "capture": True,
         "description": f"Пополнение баланса Argent Proxy",
         "metadata": {
-            "user_id": user_id  # ОБЯЗАТЕЛЬНО ПЕРЕДАЕМ ID
+            "user_id": user_id
         }
     }, idempotency_key)
 
@@ -88,8 +93,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
 # --- 2. НАСТРОЙКИ OUTLINE ---      
-api_url = "https://89.169.53.247:31117/INlqP_eD9Z5K-I91w6iEUA"
-cert_sha256 = "45E4487E4845BEBF66771E3E63538F2FD579AC5C212DE38B2CEBE7160EDDB12D"
+api_url = os.getenv("Out_url")
+cert_sha256 = os.getenv("Out_cert")
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -99,7 +104,7 @@ except Exception as e:
     print(f"❌ Ошибка инициализации Outline: {e}")
     client = None
 
-bot = telebot.TeleBot('8195901758:AAFg_179LBV84ryKgbBAr0v0jRactmfxdP0')
+bot = telebot.TeleBot(os.getenv("bot_token"))
 START_PHOTO_ID = None  # Сюда бот сам запишет ID после первой отправки
 
 broadcast_message = None

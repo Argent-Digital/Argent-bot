@@ -1,6 +1,10 @@
+import os
 import requests
 import json
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class XUIPanel:
     def __init__(self, base_url, username, password):
@@ -82,7 +86,7 @@ class XUIPanel:
             if data.get("success"):
                 # Собираем эталонную ссылку, копируя параметры твоего рабочего инбаунда
                 # Важно: path должен быть именно таким, как в панели!
-                ip = "89.169.53.247"
+                ip = os.getenv("ip")
                 port = 10000
                 path = "%2Fargent-vless%2F" 
                 
