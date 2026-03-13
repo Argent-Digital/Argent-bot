@@ -1,3 +1,4 @@
+import os
 import threading
 import random
 import uuid
@@ -17,15 +18,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from yookassa.domain.notification import WebhookNotificationFactory
 from yookassa import Configuration, Payment
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import db
 
 xui = XUIPanel(
-    base_url="http://89.169.53.247:26618/2NNQgIWtfzb0fuf2lb", 
-    username="yCqFlUXn6D", 
-    password="qWUxdZ6qo3"
-) #Конфигурация для влесс
+    base_url= os.getenv("ux_url"), 
+    username= os.getenv("ux_username"), 
+    password= os.getenv("ux_pass")
+) #vless conf
 
-Configuration.configure('1254528', 'live_6aco-HloIFi4SFGpCXYITwcGnguz26uhEZ4V1imd3zk')
+Configuration.configure(os.getenv("shop_id"), os.getenv("Ykassa_key")) #yokassa
 app = Flask(__name__)
 
 @app.route('/yookassa_webhook', methods=['POST'])
@@ -36,16 +41,16 @@ def webhook():
         response_object = notification_object.object
 
         if notification_object.event == 'payment.succeeded':
-            # 1. Получаем данные платежа
+            # 1. pull data payment
             amount = int(float(response_object.amount.value))
             user_id = response_object.metadata.get('user_id')
 
             if user_id:
-                # 2. Обновляем баланс в базе данных
+                # 2. ubdate balance in db
                 db.update_balance(int(user_id), amount)
                 print(f"✅ Баланс юзера {user_id} пополнен на {amount} руб.")
                 
-                # 3. ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ
+                # 3. send messagr user
                 try:
                     bot.send_message(
                         user_id, 
@@ -62,6 +67,7 @@ def webhook():
         print(f"❌ Ошибка в вебхуке: {e}")
         return 'Error', 400
 
+# pay data for hook
 def create_payment(user_id, amount):
     idempotency_key = str(uuid.uuid4())
     payment = Payment.create({
@@ -76,20 +82,19 @@ def create_payment(user_id, amount):
         "capture": True,
         "description": f"Пополнение баланса Argent Proxy",
         "metadata": {
-            "user_id": user_id  # ОБЯЗАТЕЛЬНО ПЕРЕДАЕМ ID
+            "user_id": user_id
         }
     }, idempotency_key)
 
     return payment.confirmation.confirmation_url
 
-# --- 1. ГЛОБАЛЬНЫЙ SSL ФИКС ---
+# --- 1. SSL fix ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-# Подменяем метод запроса, чтобы verify всегда был False
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
-# --- 2. НАСТРОЙКИ OUTLINE ---      
-api_url = "https://89.169.53.247:31117/INlqP_eD9Z5K-I91w6iEUA"
-cert_sha256 = "45E4487E4845BEBF66771E3E63538F2FD579AC5C212DE38B2CEBE7160EDDB12D"
+# --- 2. conf OUTLINE ---      
+api_url = os.getenv("Out_url")
+cert_sha256 = os.getenv("Out_cert")
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -99,8 +104,8 @@ except Exception as e:
     print(f"❌ Ошибка инициализации Outline: {e}")
     client = None
 
-bot = telebot.TeleBot('8195901758:AAFg_179LBV84ryKgbBAr0v0jRactmfxdP0')
-START_PHOTO_ID = None  # Сюда бот сам запишет ID после первой отправки
+bot = telebot.TeleBot(os.getenv("bot_token"))
+START_PHOTO_ID = None 
 
 broadcast_message = None
 
@@ -109,12 +114,12 @@ broadcast_message = None
 def main(message, user_name = None, user_login = None):
     global START_PHOTO_ID
     
-    # 1. Сразу чистим прошлые шаги, чтобы не было конфликтов
+    # 1. clear step
     bot.clear_step_handler_by_chat_id(chat_id=message.chat.id)
 
     user_id = message.chat.id 
 
-    # 2. Определяем имя юзера (приоритеты: переданное -> из ТГ -> дефолт)
+    # 2. search name user
     if user_name:
         final_name = user_name
     elif message.from_user:
@@ -122,7 +127,7 @@ def main(message, user_name = None, user_login = None):
     else:
         final_name = "Пользователь"
 
-    # 3. Собираем юзернейм
+    # 3. username
     if user_login:
         username = user_login
     elif message.from_user and not message.from_user.is_bot:
@@ -132,7 +137,7 @@ def main(message, user_name = None, user_login = None):
 
     safe_username = (username[:50] if username else None)
     
-    # 4. Реферальная логика (теперь без всяких skip_captcha)
+    # 4. referral
     referrer_id = None
     if hasattr(message, 'text') and message.text:
         args = message.text.split()
@@ -144,27 +149,26 @@ def main(message, user_name = None, user_login = None):
             except:
                 pass
 
-    # 5. Проверяем, новый ли юзер, и пишем в базу
+    # 5. check new user
     is_new_user = db.get_user_balance(user_id) is None
     print(f"Юзер {user_id} новый? {is_new_user}") 
 
     db.add_user(user_id, safe_username, final_name, referrer_id)
 
-    # 6. Начисление рефереру (теперь происходит СРАЗУ)
+    # 6. send message refferal
     if is_new_user and referrer_id:
-        db.update_balance(referrer_id, 20)
+        db.update_balance(referrer_id, 30)
         try:
-            bot.send_message(referrer_id, "🎁 Вам начислено <b>20 ₽</b> за приглашение друга!", parse_mode='html')
+            bot.send_message(referrer_id, "💵 Вам начислено <b>30 ₽</b> за приглашение друга!", parse_mode='html')
         except:
             pass
 
-    # 7. Удаляем само сообщение /start для чистоты чата
+    # 7. del message for clean char
     try:
         bot.delete_message(message.chat.id, message.message_id)
     except:
         pass
 
-    # --- КЛАВИАТУРА И ТЕКСТ ---
     startmarkups = types.InlineKeyboardMarkup()
     startmarkups.row(types.InlineKeyboardButton('Подключить 📲', callback_data='my_keys'))
     startmarkups.row(types.InlineKeyboardButton('Профиль👤', callback_data='home'))
@@ -173,7 +177,7 @@ def main(message, user_name = None, user_login = None):
 
     caption_text = f"""<b>Привет, {final_name}! 👋</b>
 
-Ищешь надежный и быстрый Proxy? Ты по адресу! 🚀
+Ищешь надежный и быстрый Proxy? Ты по адресу! 🛡️
 
 🎁 Новым пользователям дарим <b>15 дней</b>!!!
 
@@ -182,7 +186,7 @@ iOS & Android 📱
 Windows | macOS | Linux 💻
 """
 
-    # 8. Отправка фото
+    # 8. send photo
     try:
         if START_PHOTO_ID:
             bot.send_photo(message.chat.id, START_PHOTO_ID, caption=caption_text, 
@@ -195,18 +199,19 @@ Windows | macOS | Linux 💻
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
         bot.send_message(message.chat.id, caption_text, parse_mode='html', reply_markup=startmarkups)
-        
+
+# button
 @bot.callback_query_handler(func=lambda callback: True)
 def callback_message(callback):
     u_id = callback.from_user.id
 
     global client
     if callback.data == "home":
-        # Берем данные ЧЕЛОВЕКА, нажвашего кнопку
+        # pull data user
         u_name = f"{callback.from_user.first_name or ''} {callback.from_user.last_name or ''}".strip()
         u_id = callback.from_user.id
         
-        # Передаем их в функцию
+        # push in func
         show_profile(callback.message, user_name=u_name, user_id=u_id)
         bot.answer_callback_query(callback.id)
 
@@ -216,7 +221,8 @@ def callback_message(callback):
     elif callback.data == "instvless":
         inst_vless(callback.message)
 
-    # функции для установки из инструкции
+    # url instructions
+    # for outline
     elif callback.data == 'android':
         bot.send_message(
             callback.message.chat.id, 
@@ -234,7 +240,7 @@ def callback_message(callback):
         linsetup_id = "BQACAgIAAxkBAANzaV1XzyM0KeYie7pAUJcHRDrCbM0AAmeSAALl4ulKAAHUnL7E_gABFTgE"
         bot.send_document(callback.message.chat.id, linsetup_id, caption="Файл для Linux💻")
 
-    # для влесс
+    # for vless
     elif callback.data == 'androidv':
         bot.send_message(
             callback.message.chat.id, 
@@ -255,40 +261,34 @@ def callback_message(callback):
         name_to_show = callback.from_user.first_name
         main(callback.message, user_name=name_to_show)
 
-    #поддержка 
+    #support 
     elif callback.data == 'back_to_main':
         name_to_show = callback.from_user.first_name
-        login_to_show = callback.from_user.username # Берем логин того, кто нажал на кнопку
-        
-        # Передаем и имя, и логин явно
+        login_to_show = callback.from_user.username
+    
         main(callback.message, user_name=name_to_show, user_login=login_to_show)
     
     elif callback.data == 'back_to_profile':
         u_name = f"{callback.from_user.first_name or ''} {callback.from_user.last_name or ''}".strip()
         u_id = callback.from_user.id
         
-        # Передаем данные человека
         show_profile(callback.message, user_name=u_name, user_id=callback.from_user.id)
         bot.answer_callback_query(callback.id)
 
     elif callback.data == 'helping':
         support_mes(callback.message, back_target='back_to_main')
 
-    # Переход в поддержку из профиля
     elif callback.data == 'support_from_profile':
         support_mes(callback.message, back_target='back_to_profile')
 
-    # стартовая из профиля
     elif callback.data == 'back_main':
-        # Берем данные именно того человека, который нажал на кнопку
         name_to_show = callback.from_user.first_name
         login_to_show = callback.from_user.username 
         
-        # Прокидываем логин в функцию main
         main(callback.message, user_name=name_to_show, user_login=login_to_show)
 
-    # --- БЛОК УПРАВЛЕНИЯ VPN КЛЮЧАМИ ---
-    # Кнопка "Создать ключ" (или купить)
+    # --- control key menu ---
+    # button create key
     elif callback.data == 'buy_vpn':
         u_id = callback.from_user.id
         balance = db.get_user_balance(u_id)
@@ -303,16 +303,17 @@ def callback_message(callback):
         except Exception as e:
             print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}") # ЭТО ВАЖНО: смотрим в консоль!
             bot.send_message(callback.message.chat.id, f"❌ Ошибка API: {e}")
-            
+    
+    #outline klient key create 
     elif callback.data == 'Outline_connect':
         try:
             db.update_balance(u_id, -2)
             db.delete_vpn_key_final(u_id) 
             
-            # Создаем ключ
-            new_key = client.create_key() # Просто создаем, имя зададим отдельно
+            # create
+            new_key = client.create_key()
             
-            # Пытаемся определить правильные атрибуты ключа (зависит от версии либы)
+            # search atributs key
             k_id = getattr(new_key, 'key_id', getattr(new_key, 'id', None))
             k_url = getattr(new_key, 'access_url', getattr(new_key, 'access_key', None))
 
@@ -326,46 +327,57 @@ def callback_message(callback):
             
         except Exception as e:
             db.update_balance(u_id, 2) 
-            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}") # ЭТО ВАЖНО: смотрим в консоль!
+            print(f"❌ КРИТИЧЕСКАЯ ОШИБКА API: {e}")
             bot.send_message(callback.message.chat.id, f"❌ Ошибка API: {e}")
-
+    
+    # create vless
     elif callback.data == "Vless_connect":
         u_id = callback.from_user.id
-        vpn_data = db.get_user_vpn_data(u_id) # Сначала берем данные, пока не удалили!
+        bot.answer_callback_query(callback.id)
+        vpn_data = db.get_user_vpn_data(u_id)
 
         try:
-            # --- ПРОВЕРКА И ЧИСТКА ПЕРЕД СОЗДАНИЕМ ---
-            if vpn_data:
-                protocol = vpn_data[4]
-                v_uuid = vpn_data[5]
-                # Пробуем удалить из панели физически
+            v_uuid_to_del = vpn_data[5] if vpn_data and vpn_data[4] == 'vless' else None
+
+            if not v_uuid_to_del:
                 try:
-                    if protocol == 'vless' and v_uuid:
-                        xui.delete_client(v_uuid)
-                    elif protocol == 'outline':
-                        client.delete_key(vpn_data[0])
+                    base = xui.base_url.rstrip('/')
+                    # push data inbound
+                    res = xui.session.get(f"{base}/panel/api/inbounds/get/1")
+                    if res.status_code == 200:
+                        clients = res.json()['obj']['settings'] 
+                        # search user in json list
+                        import json
+                        settings_dict = json.loads(clients)
+                        for c in settings_dict['clients']:
+                            if c['email'] == f"user_{u_id}":
+                                v_uuid_to_del = c['id']
+                                break
                 except:
-                    pass # Если на сервере нет — и фиг с ним
+                    pass
 
-                # Теперь удаляем из СВОЕЙ базы
-                db.delete_vpn_key_final(u_id) 
+            # 3. if search uuid in base - del
+            if v_uuid_to_del:
+                xui.delete_client(v_uuid_to_del)
+                db.delete_vpn_key_final(u_id)
+                import time
+                time.sleep(0.5) # stop time for panel
 
-            # --- ТЕПЕРЬ СОЗДАЕМ ЧИСТО ---
+            # --- old logic ---
             db.update_balance(u_id, -2)
             v_url, v_uuid = xui.add_client(u_id, inbound_id=1)
             
             if v_url and v_uuid:
-                db.add_vpn_key_vless(u_id, v_uuid, f"Vless_{u_id}", v_url)
+                db.add_vpn_key_vless(u_id, v_uuid, f"user_{u_id}", v_url)
                 show_devices_menu(callback.message, u_id)
             else:
                 raise Exception(f"Детали: {v_uuid}")
 
-        except Exception as e:
+        except Exception as e: 
             db.update_balance(u_id, 2)
-            print(f"❌ Ошибка создания VLESS: {e}")
-            bot.send_message(callback.message.chat.id, f"⚠️ Ошибка:\n`{e}`", parse_mode="Markdown")
+            bot.send_message(callback.message.chat.id, f"⚠️ Ошибка создания:\n`{e}`")
         
-    # Кнопка "Мои ключи" (Список для удаления)
+    # my keys menu
     if callback.data == 'my_keys':
             show_devices_menu(callback.message, u_id)
             bot.answer_callback_query(callback.id)
@@ -373,43 +385,42 @@ def callback_message(callback):
 
     elif callback.data.startswith('del_'):
         u_id = callback.from_user.id
-        # vpn_data теперь: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
         vpn_data = db.get_user_vpn_data(u_id)
         
         if vpn_data:
             protocol = vpn_data[4]
             
             try:
-                # 1. Удаляем ключ физически с нужного сервера
+                # 1. del in server
                 if protocol == 'outline':
                     client.delete_key(vpn_data[0])
                 elif protocol == 'vless':
                     v_uuid = vpn_data[5]
                     if v_uuid:
-                        xui.delete_client(v_uuid) # Тот метод, что мы добавили в xui_api.py
+                        xui.delete_client(v_uuid)
             except Exception as e:
                 print(f"⚠️ Ошибка при физическом удалении ключа: {e}")
-                pass # Если на сервере уже нет, просто идем дальше
+                pass 
             
-            # 2. Удаляем запись из базы полностью
+            # 2. delete write in db
             db.delete_vpn_key_final(u_id)
             
             bot.answer_callback_query(callback.id, "🗑 Ключ полностью удален")
-            # Возвращаем пользователя в меню создания
+
+            # back user in key menu
             show_devices_menu(callback.message, u_id)
 
-    # реферальное меню 
+    # ref menu 
     elif callback.data == "ref_program":
         try:
             bot_info = bot.get_me()
             ref_link = f"https://t.me/{bot_info.username}?start={u_id}"
             ref_count = db.get_referrals_count(u_id)
-            total_earned = ref_count * 20 # Твоя ставка 20р за друга
 
             text = f'''
 <b>👥 Реферальная программа</b>
 
-Приглашайте друзей и получайте <b>10 дней подписки</b> на баланс за каждого!👌
+Приглашайте друзей и получайте <b>15 дней подписки</b> на баланс за каждого нового пользователя!🎉
 <i>Друг также получит приветственный бонус при регистрации.</i>
 
 <b>Ваша ссылка для приглашения:</b>
@@ -418,7 +429,6 @@ def callback_message(callback):
 
 <b>Статистика:</b>
 — Приглашено: <b>{ref_count}</b> чел.
-— Заработано всего: <b>{total_earned} ₽</b>
 '''
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("⬅️ Назад в профиль", callback_data="home"))
@@ -431,6 +441,7 @@ def callback_message(callback):
             print(f"❌ Ошибка в рефералке: {e}")
             bot.send_message(callback.message.chat.id, "⚠️ Не удалось открыть реферальное меню.")
 
+    # partner menu
     elif callback.data == "partner_menu":
         text = """<b>🧑‍💻 Партнерская программа</b>
     
@@ -462,7 +473,7 @@ def callback_message(callback):
         bot.delete_message(callback.message.chat.id, callback.message.message_id)
         bot.send_message(callback.message.chat.id, text, reply_markup=markup, parse_mode='HTML')
 
-# о сервисе
+# about service
     elif callback.data == "about_service":
         text = f"""
     Argent Proxy — это высокоскоростной сервис доступа к частным прокси-серверам на базе протокола Shadowsocks (технология Outline).
@@ -488,13 +499,13 @@ def callback_message(callback):
         bot.delete_message(callback.message.chat.id, callback.message.message_id)
         bot.send_message(callback.message.chat.id, text, reply_markup=markup, parse_mode='HTML')
 
-# платежное меню
+    # pay meny
     elif callback.data == "top_up":
             markup = types.InlineKeyboardMarkup()
             # Кнопки тарифов
-            markup.add(types.InlineKeyboardButton("🌙 1 Месяц — 60 ₽", callback_data="pay_60"))
-            markup.add(types.InlineKeyboardButton("☀️ 2 Месяца — 120 ₽", callback_data="pay_120"))
-            markup.add(types.InlineKeyboardButton("⭐ 3 Месяца — 180 ₽", callback_data="pay_180"))
+            markup.add(types.InlineKeyboardButton("🔥 1 Месяц — 60 ₽", callback_data="pay_60"))
+            markup.add(types.InlineKeyboardButton("⭐ 2 Месяца — 120 ₽", callback_data="pay_120"))
+            markup.add(types.InlineKeyboardButton("🌟 3 Месяца — 180 ₽", callback_data="pay_180"))
             markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data="back_to_profile"))
 
             try:
@@ -521,7 +532,7 @@ def callback_message(callback):
             markup.add(types.InlineKeyboardButton("⬅️ Назад к тарифам", callback_data="top_up"))
             
             bot.edit_message_text(
-                f"💠 <b>Пополнение баланса: {amount} ₽</b>\n\n"
+                f"💵 <b>Пополнение баланса: {amount} ₽</b>\n\n"
                 f"Нажмите кнопку ниже, чтобы перейти на защищенную страницу оплаты <b>ЮKassa</b>.\n\n"
                 f"📍 <b>Сумма:</b> {amount} ₽\n"
                 f"📍 <b>ID пользователя:</b> <code>{user_id}</code>\n\n"
@@ -535,33 +546,29 @@ def callback_message(callback):
             print(f"Ошибка при создании платежа: {e}")
             bot.answer_callback_query(callback.id, "❌ Ошибка при формировании счета. Попробуйте позже.")
 
+    # adm panel
     elif callback.data == "confirm_send":
-        if callback.from_user.id != ADMIN_ID: # Еще одна проверка прямо перед запуском
+        if callback.from_user.id != ADMIN_ID:
             return
-        # Убираем кнопки у превью
+        
         bot.edit_message_reply_markup(callback.message.chat.id, callback.message.message_id, reply_markup=None)
         bot.send_message(callback.message.chat.id, "🚀 Рассылка запущена...")
         
-        # Получаем юзеров и запускаем поток
         all_users = db.get_all_user_ids()
-        # Проверяем, что сообщение вообще есть в памяти
         if 'broadcast_message' in globals():
             threading.Thread(
             target=send_broadcast, 
             args=(broadcast_message, all_users), 
-            daemon=True # Чтобы поток не мешал выключению бота, если что
+            daemon=True
                 ).start()
         else:
             bot.send_message(callback.message.chat.id, "❌ Ошибка: сообщение потеряно. Попробуй заново.")
         
     elif callback.data == "cancel_send":
-        # Убираем кнопки
         bot.edit_message_reply_markup(callback.message.chat.id, callback.message.message_id, reply_markup=None)
         bot.send_message(callback.message.chat.id, "🚫 Рассылка отменена.")
 
     elif callback.data == "adm_mes":
-        # Вместо broadcast_command(callback.message)
-        # Сразу просим отправить пост:
         msg = bot.send_message(callback.message.chat.id, "📢 Отправь пост для рассылки:")
         bot.register_next_step_handler(msg, confirm_broadcast)
 
@@ -570,7 +577,7 @@ def callback_message(callback):
         bot.register_next_step_handler(msg, process_gift_id)
 
 
-# раздел с инструкцией
+# instrucrion
 MANUAL_PHOTO_ID = None
 
 def send_instruction_menu(message):
@@ -612,23 +619,18 @@ def send_instruction_menu(message):
 """
     
     global MANUAL_PHOTO_ID
-    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
     try:
         if MANUAL_PHOTO_ID:
-            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
             bot.send_photo(message.chat.id, MANUAL_PHOTO_ID, caption=text, 
                            parse_mode='html', reply_markup=instuctmarkups)
         else:
-            # Если это первый запуск после рестарта, читаем файл с диска
             with open('img/inst.png', 'rb') as photo:
                 sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
                                           parse_mode='html', reply_markup=instuctmarkups)
-                # Сохраняем полученный от Telegram ID в переменную
                 MANUAL_PHOTO_ID = sent_msg.photo[-1].file_id
                 print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
-        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=instuctmarkups)
 
 #vless inst
@@ -654,7 +656,7 @@ def inst_vless(message):
     text = f"""
 <b>Инструкция по подключению Argent Proxy 🚀</b>
 
-1️⃣ <b>Скачайте приложение в зависимости от вашей ос.</b>
+1️⃣ <b>Скачайте приложение в зависимости от вашей ос (Для пк и телефонов приложения отличаются!).</b>
 
 2️⃣ <b>Скопируйте ваш ключ.</b>
 
@@ -670,26 +672,21 @@ def inst_vless(message):
 ✅ <b>Готово! Теперь вы под защитой.</b>
 """
     global MANUAL_PHOTO_ID
-    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
     try:
         if MANUAL_PHOTO_ID:
-            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
             bot.send_photo(message.chat.id, MANUAL_PHOTO_ID, caption=text, 
                            parse_mode='html', reply_markup=instuctmarkups)
         else:
-            # Если это первый запуск после рестарта, читаем файл с диска
             with open('img/inst.png', 'rb') as photo:
                 sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
                                           parse_mode='html', reply_markup=instuctmarkups)
-                # Сохраняем полученный от Telegram ID в переменную
                 MANUAL_PHOTO_ID = sent_msg.photo[-1].file_id
                 print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
-        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=instuctmarkups)
 
-# поддержка
+# support
 @bot.message_handler(commands=['support'])
 def support_mes(message, back_target="back_to_main"):
     try:
@@ -709,7 +706,7 @@ def support_mes(message, back_target="back_to_main"):
         reply_markup=supmarkup
     )
 
-# профиль ВАЖНО
+# profile
 PROFILE_PHOTO_ID = None
 
 @bot.message_handler(commands=['profile'])
@@ -721,32 +718,27 @@ def show_profile(message, user_name=None, user_id=None):
 
     if user_id:
         final_id = user_id
-    elif hasattr(message, 'reply_to_message') and message.from_user: # Если это команда /profile
+    elif hasattr(message, 'reply_to_message') and message.from_user: 
         final_id = message.from_user.id
-    else: # Если ничего не помогло, берем ID чата (для простых случаев)
+    else: 
         final_id = message.chat.id
     
-    # 2. ОПРЕДЕЛЯЕМ display_name (чтобы не горело желтым)
     if user_name:
         display_name = user_name
     else:
-        # Пытаемся собрать имя из данных сообщения
         fn = message.from_user.first_name or ""
         ln = message.from_user.last_name or ""
         display_name = f"{fn} {ln}".strip() or "Пользователь"
 
-    # 3. Получаем данные из базы
     balance = db.get_user_balance(final_id)
-    vpn_data = db.get_user_vpn_data(final_id) # (server_key_id, access_url, expiry_date, is_active)
+    vpn_data = db.get_user_vpn_data(final_id)
     
-    # Логика статуса    
     is_active = False
     if vpn_data:
-        is_active = vpn_data[3] # Поле is_active из базы
+        is_active = vpn_data[3]
 
     status_text = "✅ Работает" if is_active else "❌ Отключен"
     
-    # Расчет дней: если баланс 100 рублей, хватит на 100 // 2 = 50 дней
     days_left = balance // 2 if balance > 0 else 0
 
     if days_left > 0:
@@ -754,7 +746,6 @@ def show_profile(message, user_name=None, user_id=None):
     else:
         expiry_info = "<b>Требуется пополнение</b>"
 
-    # 4. Создаем кнопки
     profmarkups = types.InlineKeyboardMarkup()
     buy = types.InlineKeyboardButton('Пополнить баланс 💳', callback_data='top_up')
     my_keys = types.InlineKeyboardButton('Подключение 📲', callback_data="my_keys")
@@ -768,44 +759,37 @@ def show_profile(message, user_name=None, user_id=None):
     profmarkups.row(partner)  
     profmarkups.row(support, back)
 
-    # 5. Формируем текст
-
     channel_link = "https://t.me/ArgentVPNru"
 
     text = f'''
-<b>👤 Профиль</b>
+<b>👤 Профиль </b>
                      
 <b>{display_name}, ваш баланс: {balance} руб.</b>
 
 <b>Статус proxy:</b> {status_text}
 <b>Хватит на:</b> {expiry_info} дней.
 
-<i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!</i>
+<i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!📱</i>
 
-<b>⚡ Наш канал: <a href='{channel_link}'>Подписаться</a></b>
+<b>📍 Наш канал: <a href='{channel_link}'>Подписаться</a></b>
 '''
     
     global PROFILE_PHOTO_ID
-    # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
     try:
         if PROFILE_PHOTO_ID:
-            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
             bot.send_photo(message.chat.id, PROFILE_PHOTO_ID, caption=text, 
                            parse_mode='html', reply_markup=profmarkups)
         else:
-            # Если это первый запуск после рестарта, читаем файл с диска
             with open('img/profile.png', 'rb') as photo:
                 sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
                                           parse_mode='html', reply_markup=profmarkups)
-                # Сохраняем полученный от Telegram ID в переменную
                 PROFILE_PHOTO_ID = sent_msg.photo[-1].file_id
                 print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
-        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=profmarkups)
 
-# меню ключей
+# key menu
 KEY_PHOTO_ID = None
 
 def show_devices_menu(message, user_id):
@@ -813,7 +797,6 @@ def show_devices_menu(message, user_id):
     vpn_data = db.get_user_vpn_data(user_id)
     markup = types.InlineKeyboardMarkup()
     
-    # Сразу задаем значение по умолчанию, чтобы бот не падал
     instsel = "instruct" 
 
     if not vpn_data: 
@@ -822,33 +805,33 @@ def show_devices_menu(message, user_id):
     else:
         server_key_id, access_url, _, is_active, protocol, vless_uuid = vpn_data
         
-        # --- ЗАЩИТА ОТ ТРУПОВ СТАРЫХ СЕРВЕРОВ ---
+        # safe user at old server
         if "194.41.113.168" in str(access_url):
             text = "<b>📱 Ваш ключ устарел.</b>\n\nКлючи, созданные до 13 февраля, больше не поддерживаются. Пожалуйста, удалите старый доступ и создайте новый (рекомендуем VLESS)."
-            # ID для удаления старья, чтобы кнопка "Удалить" всё же была, если она захочет его снести
             key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
             markup.add(types.InlineKeyboardButton("🗑 Удалить старый ключ", callback_data=f"del_{key_id_for_delete}"))
         
         else:
-            # ЭТОТ БЛОК ТЕПЕРЬ ТОЛЬКО ДЛЯ НОВЫХ РАБОЧИХ КЛЮЧЕЙ
+            # for new key
             key_id_for_delete = server_key_id if protocol == 'outline' else vless_uuid
 
             text = f'''
-<b>🚀 Ваш {protocol.upper()} доступ готов!</b>
+<b>⛓️‍💥 Ваш {protocol.upper()} доступ готов!</b>
 
 <b>1. Скопируйте этот ключ:</b> 
 <code>{access_url}</code>
+
 <b>2. Скачайте приложение {'Outline' if protocol == 'outline' else 'В ИНСТРУКЦИИ!!! <i>(если вы перешли со старого протокола, нужно установить новое)</i>'}.</b>
+
 <b>3. Нажмите «Добавить сервер» и вставьте ключ.</b>
 
 <i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>'''
             
             markup.add(types.InlineKeyboardButton("🗑 Удалить ключ полностью", callback_data=f"del_{key_id_for_delete}"))
             
-            # Настройка инструкции
+            # select instruction
             instsel = "instruct" if protocol == 'outline' else 'instvless'
 
-    # ТЕПЕРЬ ОБЩИЕ КНОПКИ БУДУТ РАБОТАТЬ ВСЕГДА
     markup.row(types.InlineKeyboardButton("📖 Установить приложение", callback_data=instsel))
     markup.row(types.InlineKeyboardButton("⬅️ В профиль", callback_data="back_to_profile"))
 
@@ -857,26 +840,21 @@ def show_devices_menu(message, user_id):
     except:
         pass
 
-        # --- ОПТИМИЗИРОВАННАЯ ОТПРАВКА ФОТО ---
     try:
         if KEY_PHOTO_ID:
-            # Если ID уже есть в памяти, отправляем "ссылкой" (мгновенно)
             bot.send_photo(message.chat.id, KEY_PHOTO_ID, caption=text, 
                            parse_mode='html', reply_markup=markup)
         else:
-            # Если это первый запуск после рестарта, читаем файл с диска
             with open('img/key_menu.png', 'rb') as photo:
                 sent_msg = bot.send_photo(message.chat.id, photo, caption=text, 
                                           parse_mode='html', reply_markup=markup)
-                # Сохраняем полученный от Telegram ID в переменную
                 KEY_PHOTO_ID = sent_msg.photo[-1].file_id
                 print(f"📸 Фото загружено на сервер Telegram. File_ID сохранен.")
     except Exception as e:
         print(f"❌ Ошибка при отправке фото: {e}")
-        # Запасной вариант: отправить просто текстом, если фото удалено или недоступно
         bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
-# меню протокола
+# protocol menu
 def menu_protokol(message, user_id):
     markup=types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🚀 VLESS (Скорость)", callback_data="Vless_connect"))
@@ -887,10 +865,10 @@ def menu_protokol(message, user_id):
 """
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
-# Админ команды
-ADMIN_ID = 1306570088  
+# adm panel
+ADMIN_ID = os.getenv("tg_adm_id")  
 
-# админ команда на зачисление
+# adm update balance
 def process_gift_id(message):
     try:
         target_id = int(message.text)
@@ -904,11 +882,8 @@ def process_gift_amount(message, target_id):
     try:
         amount = int(message.text)
         
-        # Твоя логика обновления БД
-        # Убедись, что метод update_balance существует в твоем объекте db
         db.update_balance(target_id, amount) 
 
-        # Уведомление юзеру
         success_text = f"""
 💰 <b>Баланс пополнен!</b>
 
@@ -926,25 +901,21 @@ def process_gift_amount(message, target_id):
     except ValueError:
         bot.send_message(message.chat.id, "❌ Сумма должна быть числом. Начни заново с нажатия кнопки.")
 
-# админ команда на рассылку
+# adm message from user
 def send_broadcast(admin_msg, user_ids):
     count = 0
     blocked = 0
     
     for uid in user_ids:
         try:
-            # Копируем сообщение админа юзеру (текст, медиа, кнопки — всё сохранится)
             bot.copy_message(chat_id=uid, from_chat_id=admin_msg.chat.id, message_id=admin_msg.message_id)
             count += 1
             
-            # Пауза 0.1 сек (10 сообщений в секунду), чтобы Telegram не забанил
             time.sleep(0.05)            
         except Exception as e:
-            # Сюда попадут те, кто заблокировал бота
             blocked += 1
             print(f"Ошибка при отправке пользователю {uid}: {e}")
             
-    # Когда цикл закончился, пишем админу отчет
     bot.send_message(admin_msg.chat.id, f"✅ Рассылка завершена!\n\n📈 Успешно: {count}\n🚫 Заблокировали бота: {blocked}")
 
 def broadcast_command(message, user_id):
@@ -952,22 +923,21 @@ def broadcast_command(message, user_id):
         msg = bot.send_message(message.chat.id, "Отправь пост, который хочешь разослать:")
         bot.register_next_step_handler(msg, confirm_broadcast)
 
-# 2. Показываем превью и кнопки
 def confirm_broadcast(message):
     if message.from_user.id != ADMIN_ID:
         return
     
     global broadcast_message
-    broadcast_message = message # Запоминаем пост
+    broadcast_message = message
 
     markup = types.InlineKeyboardMarkup()
     btn_yes = types.InlineKeyboardButton("✅ Да, рассылаем", callback_data="confirm_send")
     btn_no = types.InlineKeyboardButton("❌ Отмена", callback_data="cancel_send")
     markup.add(btn_yes, btn_no)
 
-    # ОБЯЗАТЕЛЬНО: Отправляем админу вопрос с кнопками
     bot.send_message(message.chat.id, "Пост принят. Начинаем рассылку?", reply_markup=markup)
 
+# adm stat
 @bot.message_handler(commands=['pltn'])
 def admin_dashboard(message):
     if message.from_user.id != ADMIN_ID:
@@ -994,11 +964,13 @@ def admin_dashboard(message):
 
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=markups)
 
-# вкид фото
+# photo prank
 @bot.message_handler(content_types=['photo'])
 def get_photo(message):
     bot.send_message(message.chat.id, 'Крутое фото👍')
 
+
+# for take id file
 # айди дока (временное, потом комент)
 # @bot.message_handler(content_types=['document'])
 # def handle_docs(message):
@@ -1014,25 +986,21 @@ def get_photo(message):
 #         parse_mode='html'
 #     )
 
+# test billing for one user
 @bot.message_handler(commands=['testme'])
 def test_billing_me(message):
-    """Тест биллинга ТОЛЬКО на авторе сообщения"""
     user_id = message.from_user.id
     
-    # Получаем полные данные (6 полей, как мы настроили в db.py)
-    # vpn_data: (server_key_id, access_url, expiry_date, is_active, protocol, vless_uuid)
     user_key = db.get_user_vpn_data(user_id)
     
     if not user_key:
         bot.reply_to(message, "❌ У тебя нет VPN ключа для теста")
         return
     
-    # Распаковываем всё, что нам нужно
     server_key_id, _, _, _, protocol, vless_uuid = user_key
     balance = db.get_user_balance(user_id)
     
     if balance >= 2:
-        # Просто списываем 2 рубля для теста
         db.update_balance(user_id, -2)
         new_balance = db.get_user_balance(user_id)
         bot.reply_to(message, 
@@ -1041,11 +1009,10 @@ def test_billing_me(message):
             f"Списано: 2 рубля\n"
             f"Баланс: {balance} → {new_balance} руб", parse_mode='html')
     else:
-        # Имитируем реальное удаление, которое произошло бы в биллинге
+        # fake del
         bot.reply_to(message, f"🧪 <b>Тест удаления (баланс {balance}₽):</b>", parse_mode='html')
         
         try:
-            # 1. Физическое удаление в зависимости от протокола
             if protocol == 'outline':
                 client.delete_key(server_key_id)
                 bot.send_message(user_id, "✅ Ключ удален из Outline")
@@ -1054,14 +1021,41 @@ def test_billing_me(message):
                     xui.delete_client(vless_uuid)
                     bot.send_message(user_id, "✅ Ключ удален из 3X-UI")
             
-            # 2. Удаление из базы бота
             db.delete_vpn_key_final(user_id)
             bot.send_message(user_id, "✅ Запись стерта из БД бота. Тест завершен.")
             
         except Exception as e:
             bot.send_message(user_id, f"⚠️ Ошибка при тестовом удалении: {e}")
 
-# биллинг
+# promocode logic
+PROMOS = {
+    "ARGENT12": {"days": 12, "limit": 6, "users": []},
+    "TestPromo": {"days": 1, "limit": 1, "users": []}
+}
+
+@bot.message_handler(commands=['promo'])
+def handle_promo(message):
+    parts = message.text.split()
+    if len(parts) < 2:
+        return bot.reply_to(message, "Введи код, например: /promo ВЕСНА")
+    
+    code = parts[1].upper()
+    user_id = message.from_user.id
+
+    if code in PROMOS:
+        p = PROMOS[code]
+        if len(p["users"]) >= p["limit"]:
+            bot.send_message(message.chat.id, "Лимит исчерпан! 💨")
+        elif user_id in p["users"]:
+            bot.send_message(message.chat.id, "Ты уже в деле, второй раз нельзя! ✋")
+        else:
+            p["users"].append(user_id)
+            db.update_balance(user_id, p["days"] * 2)
+            bot.send_message(message.chat.id, f"🔥 Успех! +{p['days']} дней к твоему Argent.")
+    else:
+        bot.send_message(message.chat.id, "Недействительный код.")    
+
+# billing
 def daily_billing_job():
     """Ежедневное списание - универсальное для Outline и VLESS"""
     print(f"💰 [{datetime.now().strftime('%H:%M')}] Начинаю ежедневное списание...")
@@ -1080,7 +1074,7 @@ def daily_billing_job():
                 else:
                     print(f"🚫 У {user_id} баланс {balance} руб. Удаляю {protocol}...")
                     
-                    # --- УДАЛЕНИЕ ИЗ ПАНЕЛЕЙ ---
+                    # --- del in panel ---
                     if protocol == 'outline':
                         try:
                             client.delete_key(server_key_id)
@@ -1096,14 +1090,14 @@ def daily_billing_job():
                         except Exception as e:
                             print(f"   ⚠️ Ошибка VLESS: {e}")
 
-                    # --- УДАЛЕНИЕ ИЗ БАЗЫ (ОБЩЕЕ) ---
+                    # --- del in db ---
                     db.delete_vpn_key_final(user_id)
                     
-                    # Уведомление
+                    # message
                     try:
                         bot.send_message(user_id, 
                             "⚠️ *Доступ приостановлен*\n\n"
-                            "Баланс менее 2₽, ваш VPN ключ удален.\n"
+                            "Баланс менее 2₽, ваш ключ удален.\n"
                             "Пополните счет и создайте новый ключ в профиле.",
                             parse_mode='Markdown')
                     except:
@@ -1116,7 +1110,7 @@ def daily_billing_job():
     except Exception as e:
         print(f"❌ Критическая ошибка биллинга: {e}")
 
-# --- НАСТРОЙКА ПЛАНИРОВЩИКА ---
+# --- cheduler conf ---
 def clear_memory():
     print("🧹 Принудительная очистка памяти...")
     gc.collect()
@@ -1124,23 +1118,22 @@ def clear_memory():
 moscow_tz = timezone('Europe/Moscow')
 scheduler = BackgroundScheduler(timezone=moscow_tz)
 
-# 2. Добавляем задачи
-# Ежедневное списание в 00:00
+# dayli magazine at 00
 scheduler.add_job(daily_billing_job, 'cron', hour=0, minute=0)
-# Очистка памяти каждые 30 минут (интервальная задача)
+# clear py cashe
 scheduler.add_job(clear_memory, 'interval', minutes=30)
 
-# --- БЛОК ЗАПУСКА ---
+# --- block init ---
 if __name__ == "__main__":
     try:
-        # 1. Сначала запускаем планировщик (он теперь следит и за деньгами, и за памятью)
+        # 1. start scheduler
         scheduler.start()
         print("✅ Планировщик запущен (списания + очистка памяти)!")
 
-        # 2. Инициализируем базу
+        # 2. init database
         db.init_db()
 
-        # 3. ЗАПУСКАЕМ FLASK ДЛЯ ВЕБХУКОВ
+        # 3. init flask for webhooks
         flask_thread = threading.Thread(
             target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
         )
@@ -1148,7 +1141,7 @@ if __name__ == "__main__":
         flask_thread.start()
         print("✅ Flask-сервер для ЮKassa запущен на порту 5000!")
 
-        # 4. Основной цикл бота
+        # 4. cycle bot
         print("🚀 Бот вышел на связь...")
         bot.polling(none_stop=True)
 

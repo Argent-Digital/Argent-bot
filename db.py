@@ -1,3 +1,4 @@
+import os
 import psycopg2
 from psycopg2 import sql
 from datetime import datetime, timedelta
@@ -5,11 +6,15 @@ import subprocess
 import json
 import uuid
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Подключение
 DB_CONFIG = {
-    "database": "ArgentVPN",
-    "user": "postgres", 
-    "password": "q20081004", 
+    "database": os.getenv("db_name"),
+    "user": os.getenv("db_user"), 
+    "password": os.getenv("db_pass"), 
     "host": "localhost",
     "port": "5432"
 }
