@@ -1029,7 +1029,7 @@ def test_billing_me(message):
 
 # promocode logic
 PROMOS = {
-    "ARGENT12": {"days": 12, "limit": 6, "users": []},
+    "ARGENT12": {"days": 12, "limit": 10, "users": []},
     "TestPromo": {"days": 1, "limit": 1, "users": []}
 }
 
@@ -1071,6 +1071,15 @@ def daily_billing_job():
                 if balance >= 2:
                     db.update_balance(user_id, -2)
                     print(f"✅ {user_id}: -2 руб. (Протокол: {protocol})")
+                    if balance <= 6:
+                        try:
+                            bot.send_message(user_id, """
+<b>🚀 Продлите подписку!</b>
+
+Баланс почти на нуле. Пополните счет сейчас, чтобы не потерять свой ключ доступа.
+    """, parse_mode="html")
+                        except:
+                            pass
                 else:
                     print(f"🚫 У {user_id} баланс {balance} руб. Удаляю {protocol}...")
                     
