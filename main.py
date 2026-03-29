@@ -866,7 +866,7 @@ def menu_protokol(message, user_id):
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 # adm panel
-ADMIN_ID = os.getenv("tg_adm_id")  
+ADMIN_ID = 1306570088 
 
 # adm update balance
 def process_gift_id(message):
