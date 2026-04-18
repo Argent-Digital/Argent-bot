@@ -25,12 +25,12 @@ load_dotenv()
 import db
 
 xui = XUIPanel(
-    base_url= os.getenv("ux_url"), 
-    username= os.getenv("ux_username"), 
-    password= os.getenv("ux_pass")
+    base_url= os.getenv("UX_URL"), 
+    username= os.getenv("UX_USERNAME"), 
+    password= os.getenv("UX_PASS")
 ) #vless conf
 
-Configuration.configure(os.getenv("shop_id"), os.getenv("Ykassa_key")) #yokassa
+Configuration.configure(os.getenv("SHOP_ID"), os.getenv("YKASSA_KEY")) #yokassa
 app = Flask(__name__)
 
 @app.route('/yookassa_webhook', methods=['POST'])
@@ -93,8 +93,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.sessions.Session.request = functools.partialmethod(requests.sessions.Session.request, verify=False)
 
 # --- 2. conf OUTLINE ---      
-api_url = os.getenv("Out_url")
-cert_sha256 = os.getenv("Out_cert")
+api_url = os.getenv("OUT_URL")
+cert_sha256 = os.getenv("OUT_CERT")
 
 try:
     from outline_vpn.outline_vpn import OutlineVPN
@@ -104,7 +104,7 @@ except Exception as e:
     print(f"❌ Ошибка инициализации Outline: {e}")
     client = None
 
-bot = telebot.TeleBot(os.getenv("bot_token"))
+bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
 START_PHOTO_ID = None 
 
 broadcast_message = None

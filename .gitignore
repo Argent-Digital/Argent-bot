@@ -1,10 +1,6 @@
-# Игнорим всё
-/*
-
-# Но сохраняем нужное
-!/db.py
-!/main.py
-!/xui_api.py
-!/requirements.txt
-!/README.md
-!.gitignore
+__pycache__/
+.idea/
+.venv/
+.vscode/
+bin/
+.env
