@@ -42,3 +42,32 @@ class UserDao:
             }
             await session.execute(stmt)
             await session.commit()
+
+    @classmethod
+    async def get_all_active_users(cls) -> list[UsersOrm]:
+        async with async_session_factory() as session:
+            query = (
+                select(UsersOrm)
+                .join(UsersOrm.key)
+            )
+            res = await session.execute(query)
+            return res.scalars().unique().all()
+        
+    @classmethod
+    async def get_all_user_ids(cls) -> list[int]:
+        async with async_session_factory() as session:
+            query = (
+                select(UsersOrm.user_id)
+            )
+            res = await session.execute(query)
+            return res.scalars().unique().all()
+        
+    @classmethod
+    async def get_referrer(cls, user_id: int) -> int | None:
+        async with async_session_factory() as session:
+            query = (
+                select(UsersOrm.referrer_id)
+                .where(UsersOrm.user_id == user_id)
+            )
+            res = await session.execute(query)
+            return res.scalar()

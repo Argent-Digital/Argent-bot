@@ -1,4 +1,4 @@
-from sqlalchemy import insert, select, update, UUID
+from sqlalchemy import insert, select, UUID, delete
 from sqlalchemy.dialects.postgresql import insert
 import uuid
 from src.database.database import async_session_factory
@@ -43,4 +43,40 @@ class VpnKeyDao:
             await session.commit()
 
     @classmethod
-    
+    async def get_user_access_url(cls, user_id: int):
+        async with async_session_factory() as session:
+            stmt = (
+                select(VpnKeysOrm.access_url)
+                .where(VpnKeysOrm.user_id == user_id)
+            )
+            res = await session.execute(stmt)
+            return res.scalar()
+
+    @classmethod
+    async def get_user_vpn_data(cls, user_id: int):
+        async with async_session_factory() as session:
+            stmt = (
+                select(VpnKeysOrm)
+                .where(VpnKeysOrm.user_id == user_id)
+            )
+            res = await session.execute(stmt)
+            return res.scalar_one_or_none()
+        
+    @classmethod
+    async def get_all_vpn_keys(cls) -> list[VpnKeysOrm]:
+        async with async_session_factory() as session:
+            stmt = (
+                select(VpnKeysOrm)
+            )
+            res = await session.execute(stmt)
+            return res.scalars().all()
+        
+    @classmethod 
+    async def delete_vpn_key(cls, user_id: int):
+        async with async_session_factory() as session:
+            stmt = (
+                delete(VpnKeysOrm)
+                .where(VpnKeysOrm.user_id == user_id)
+            )
+            await session.execute(stmt)
+            await session.commit()
