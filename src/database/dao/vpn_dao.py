@@ -46,11 +46,11 @@ class VpnKeyDao:
     async def get_user_access_url(cls, user_id: int):
         async with async_session_factory() as session:
             stmt = (
-                select(VpnKeysOrm.access_url)
+                select(VpnKeysOrm)
                 .where(VpnKeysOrm.user_id == user_id)
             )
             res = await session.execute(stmt)
-            return res.scalar()
+            return res.scalar_one_or_none()
 
     @classmethod
     async def get_user_vpn_data(cls, user_id: int):
