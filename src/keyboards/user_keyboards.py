@@ -26,7 +26,7 @@ class UserKeyboards:
         btn_create = InlineKeyboardButton(text="➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn")
         btn_del = InlineKeyboardButton(text="🗑 Удалить ключ полностью", callback_data=f"del_key")
         btn_installs = InlineKeyboardButton(text="📖 Установить приложение", callback_data=instsel)
-        btn_back = InlineKeyboardButton(text="⬅️ В профиль", callback_data="back_to_profile")
+        btn_back = InlineKeyboardButton(text="⬅️ В профиль", callback_data="home")
 
         if protocol is not None:
             keyboard = InlineKeyboardMarkup(
@@ -56,6 +56,27 @@ class UserKeyboards:
             inline_keyboard=[
                 [btn_vle],
                 [btn_out]
+            ]
+        )
+
+        return keyboard
+    
+    @staticmethod
+    def profile_buttons():
+        btn_pay = InlineKeyboardButton(text='Пополнить баланс 💳', callback_data='pay')
+        btn_conn = InlineKeyboardButton(text='Подключить 📲', callback_data='my_keys')
+        btn_ref = InlineKeyboardButton(text='Пригласить друга 👥', callback_data='ref_program')
+        btn_part = InlineKeyboardButton(text='Партнерская программа 🧑‍💻', callback_data= "partner_menu")
+        btn_supp = InlineKeyboardButton(text='Поддержка 🆘', callback_data='support')
+        btn_back = InlineKeyboardButton(text='Вернуться ↩️', callback_data='back_start')
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [btn_pay],
+                [btn_conn],
+                [btn_ref],
+                [btn_part],
+                [btn_supp, btn_back]
             ]
         )
 

@@ -54,3 +54,18 @@ Windows | macOS | Linux 💻
         return(f"""
 ❌ Недостаточно средств (нужно минимум 2₽)
 """)
+    
+    @staticmethod 
+    def profile_menu(display_name: str, balance: int, status_text: str, expiry_info: int, channel_link: str):
+        return(f"""
+<b>👤 Профиль </b>
+                     
+<b>{display_name}, ваш баланс: {balance} руб.</b>
+
+<b>Статус proxy:</b> {status_text}
+<b>Хватит на:</b> {expiry_info} дней.
+
+<i>Одного пополнения на 60₽ хватает на 30 дней доступа для 10 устройств!📱</i>
+
+<b>📍 Наш канал: <a href='{channel_link}'>Подписаться</a></b>
+""")

@@ -28,7 +28,7 @@ class VpnKeysOrm(Base):
 
     key_id: Mapped[intpk]
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
-    server_key_id: Mapped[str]
+    server_key_id: Mapped[str | None]
     key_name: Mapped[str]
     access_url: Mapped[str]
     created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))

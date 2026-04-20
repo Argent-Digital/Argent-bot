@@ -5,6 +5,7 @@ from src.database.dao.user_dao import UserDao
 from src.database.dao.vpn_dao import VpnKeyDao
 from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
+from xui_api import XUIPanel
 
 router = Router()
 
@@ -108,4 +109,43 @@ async def select_protocol_menu(callback: CallbackQuery):
             parse_mode='html'
         )
 
+# @router.callback_query(F.data == "Vless_connect")
+# async def connect_vless_key(callback: CallbackQuery):
+#     await UserDao.update_balance(callback.from_user.id, -2)
 
+#     try:
+#         v_url, v_uuid = await XUIPanel.add_client(callback.from_user.id)
+
+#         await VpnKeyDao.add_vpn_key(
+#             user_id=callback.from_user.id,
+#             key_name=f"user_{callback.from_user.id}",
+#             access_url=v_url,
+#             protocol="vless",
+#             vless_uuid=v_uuid
+#         )
+
+@router.callback_query(F.data == "home")
+async def profile_menu(callback: CallbackQuery):
+    await callback.answer()
+
+    display_name = callback.from_user.first_name
+    balance = await UserDao.get_user_balance(user_id=callback.from_user.id)
+    status_text = await VpnKeyDao.get_user_access_url(user_id=callback.from_user.id)
+    expiry_info = balance // 2
+    channel_link = "https://t.me/ArgentVPNru"
+    photo = FSInputFile(r"src\img\profile.png")
+
+
+    if status_text is not None:
+        status_text = "✅ Работает"
+    else:
+        status_text = "❌ Отключен"
+
+    await callback.message.edit_media(
+        media= InputMediaPhoto(
+            media=photo,
+            caption=BotTexts.profile_menu(display_name=display_name, balance=balance, status_text=status_text, expiry_info=expiry_info, channel_link=channel_link),
+            parse_mode='html'
+            ),
+        reply_markup=UserKeyboards.profile_buttons()
+    )
