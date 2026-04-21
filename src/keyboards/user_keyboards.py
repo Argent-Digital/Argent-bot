@@ -81,3 +81,43 @@ class UserKeyboards:
         )
 
         return keyboard
+    
+    @staticmethod
+    def inst_out_but():
+        android = InlineKeyboardButton('Android', url="https://play.google.com/store/apps/details?id=org.outline.android.client&pcampaignid=web_share")
+        ios = InlineKeyboardButton('Ios', url="https://apps.apple.com/us/app/outline-app/id1356177741")
+        mac = InlineKeyboardButton('MacOS', url="https://apps.apple.com/us/app/outline-secure-internet-access/id1356178125?mt=12")
+        win = InlineKeyboardButton('Windows', callback_data='win_out')
+        lin = InlineKeyboardButton('Linux', callback_data="win_out")
+        back = InlineKeyboardButton('Вернуться↩️', callback_data='my_key')
+
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [android, ios],
+                [win],
+                [mac, lin],
+                [back]
+            ]
+        )
+
+        return keyboards
+    
+    @staticmethod
+    def inst_vle_but():
+        android = InlineKeyboardButton('Android', url="https://play.google.com/store/apps/details?id=com.v2raytun.android")
+        ios = InlineKeyboardButton('Ios', url="https://apps.apple.com/app/id6476628951")
+        mac = InlineKeyboardButton('MacOS', url="https://apps.apple.com/us/app/v2raytun/id6476628951")
+        win = InlineKeyboardButton('Windows', callback_data='win_vle')
+        lin = InlineKeyboardButton('Linux', url="https://github.com/MatsuriDayo/nekoray/releases")
+        back = InlineKeyboardButton('Вернуться↩️', callback_data='my_key')
+
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [android, ios],
+                [win],
+                [mac, lin],
+                [back]
+            ]
+        )
+
+        return keyboards

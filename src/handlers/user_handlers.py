@@ -109,6 +109,29 @@ async def select_protocol_menu(callback: CallbackQuery):
             parse_mode='html'
         )
 
+@router.callback_query(F.data == "outline_inst")
+async def outline_inst(callback: CallbackQuery):
+    await callback.answer()
+
+
+    photo = FSInputFile(r"src\img\inst.png")
+    await callback.message.edit_media(
+        media= InputMediaPhoto(media=photo, caption=BotTexts.instructions_out(), parse_mode='html'),
+        reply_markup=UserKeyboards.inst_out_but()
+    )
+
+@router.callback_query(F.data == "vless_inst")
+async def vless_inst(callback: CallbackQuery):
+    await callback.answer()
+
+
+    photo = FSInputFile(r"src\img\inst.png")
+    await callback.message.edit_media(
+        media= InputMediaPhoto(media=photo, caption=BotTexts.instructions_vle(), parse_mode='html'),
+        reply_markup=UserKeyboards.inst_vle_but()
+    )
+
+
 # @router.callback_query(F.data == "Vless_connect")
 # async def connect_vless_key(callback: CallbackQuery):
 #     await UserDao.update_balance(callback.from_user.id, -2)
@@ -149,3 +172,5 @@ async def profile_menu(callback: CallbackQuery):
             ),
         reply_markup=UserKeyboards.profile_buttons()
     )
+
+
