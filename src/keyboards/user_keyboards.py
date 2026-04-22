@@ -67,7 +67,7 @@ class UserKeyboards:
         btn_conn = InlineKeyboardButton(text='Подключить 📲', callback_data='my_keys')
         btn_ref = InlineKeyboardButton(text='Пригласить друга 👥', callback_data='ref_program')
         btn_part = InlineKeyboardButton(text='Партнерская программа 🧑‍💻', callback_data= "partner_menu")
-        btn_supp = InlineKeyboardButton(text='Поддержка 🆘', callback_data='support')
+        btn_supp = InlineKeyboardButton(text='Поддержка 🆘',  url="https://t.me/pyxxisss")
         btn_back = InlineKeyboardButton(text='Вернуться ↩️', callback_data='back_start')
 
         keyboard = InlineKeyboardMarkup(
@@ -121,3 +121,41 @@ class UserKeyboards:
         )
 
         return keyboards
+    
+    @staticmethod
+    def about_service():
+        btn_ofer = InlineKeyboardButton(text="📄 Оферта", url="https://telegra.ph/Publichnaya-oferta-servisa-Argent-Digital-01-21")
+        btn_private = InlineKeyboardButton(text="🛡 Приватность", url="https://telegra.ph/Politika-konfidencialnosti-Argent-Digital-01-21")
+        btn_back = InlineKeyboardButton(text="⬅️ Назад", callback_data="back_start")
+
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [btn_ofer, btn_private],
+                [btn_back]
+            ]
+        )
+        return keyboards
+    
+    @staticmethod
+    def ref_prog():
+        back = InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="home")
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [back]
+            ]
+        )
+        return keyboards
+    
+    @staticmethod
+    def partner_menu():
+        btt_support = InlineKeyboardButton(text="🆘 Связаться с поддержкой", url="https://t.me/pyxxisss")
+        btn_back = InlineKeyboardButton(text="⬅️ Назад", callback_data="home")
+
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [btt_support],
+                [btn_back]
+            ]
+        )
+        return keyboards
+        

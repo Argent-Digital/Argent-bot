@@ -35,7 +35,7 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
     if referrer_id is not None:
         await UserDao.update_balance(
             user_id=referrer_id,
-            amount=30
+            amount=40
         )
         try:
             await bot.send_message(
@@ -173,4 +173,44 @@ async def profile_menu(callback: CallbackQuery):
         reply_markup=UserKeyboards.profile_buttons()
     )
 
+@router.callback_query(F.data == "pay")
+async def pay_menu(callback: CallbackQuery):
+    await callback.answer()
 
+    # about service
+@router.callback_query(F.data == "about_service")
+async def about_service(callback: CallbackQuery):
+    await callback.answer()
+
+    await callback.message.edit_caption(
+        caption=BotTexts.about_service(),
+        reply_markup=UserKeyboards.about_service(),
+        parse_mode='html'
+    )
+
+    # referral menu
+@router.callback_query(F.data == "ref_program")
+async def ref_prog(callback: CallbackQuery):
+    await callback.answer()
+
+    bot_info = await callback.bot.get_me()
+    ref_link = f"http://t.me/{bot_info.username}?start={callback.from_user.id}"
+
+    await callback.message.delete()
+
+    await callback.message.answer(
+        text=BotTexts.ref_prog(ref_link=ref_link),
+        reply_markup=UserKeyboards.ref_prog(),
+        parse_mode='html'
+    )
+
+    # partner menu
+@router.callback_query(F.data == "partner_menu")
+async def partner_menu(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.delete()
+    await callback.message.answer(
+        text=BotTexts.partner_menu(),
+        reply_markup=UserKeyboards.partner_menu(),
+        parse_mode='html'
+    )
