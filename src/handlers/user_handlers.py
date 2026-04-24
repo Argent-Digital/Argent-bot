@@ -1,11 +1,8 @@
 from aiogram import Router, F, Bot, types
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
-from src.database.dao.user_dao import UserDao
-from src.database.dao.vpn_dao import VpnKeyDao
 from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
-from xui_api import XUIPanel
 
 router = Router()
 
