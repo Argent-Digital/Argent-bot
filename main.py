@@ -1029,7 +1029,6 @@ def test_billing_me(message):
 
 # promocode logic
 PROMOS = {
-    "ARGENT12": {"days": 12, "limit": 10, "users": []},
     "TestPromo": {"days": 1, "limit": 1, "users": []}
 }
 

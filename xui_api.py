@@ -65,9 +65,8 @@ class XUIPanel:
             "subId": ""
         }
 
-        base = self.base_url.rstrip('/')
-        url = f"{base}/panel/api/inbounds/addClient"
-        
+        base = self.base_url.strip('/')
+        url = f"{base}/panel/api/inbounds/addClient"      
         # Некоторые версии панели требуют JSON в теле запроса, а не в параметрах
         payload = {
             "id": int(inbound_id), 
