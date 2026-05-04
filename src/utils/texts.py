@@ -169,3 +169,7 @@ Windows | macOS | Linux 💻
 
 <b>Забирай ссылку в меню реферальной программы и начинай снимать!</b>
 """)
+    
+    @staticmethod
+    def pay_succes(amount: int):
+        return f"✅ <b>Оплата прошла успешно!</b>\n\nНа ваш баланс зачислено: <code>{amount} руб.</code>\nСпасибо, что выбираете Argent Proxy!"

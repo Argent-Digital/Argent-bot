@@ -3,16 +3,18 @@ from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
+from clients.user_client import ArgentCoreClient
 
 router = Router()
 
 # start menu
 @router.message(CommandStart())
-async def start_menu(message: Message, command: CommandObject, bot: Bot):
+async def start_menu(message: Message, command: CommandObject, bot: Bot, user_client: ArgentCoreClient)
     args = command.args
     referrer_id = None
+    user_id = message.from_user.id
 
-    is_new = not await UserDao.check_user(message.from_user.id)
+    is_new = not await user_client.check_user(user_id=user_id)
 
     # ref check
     if is_new and args and args.isdigit():
@@ -21,7 +23,7 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
             referrer_id = from_id
 
     # add DB
-    await UserDao.add_user(
+    await user_client.register_user(
         user_id=message.from_user.id,
         username=message.from_user.username,
         first_name=message.from_user.first_name,
@@ -29,10 +31,10 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
     )
 
     #message refferal
-    if referrer_id is not None:
-        await UserDao.update_balance(
+    if is_new and referrer_id is not None:
+        await user_client.update_balance(
             user_id=referrer_id,
-            amount=40
+            amount=60
         )
         try:
             await bot.send_message(
@@ -89,10 +91,10 @@ async def key_menu(callback: CallbackQuery):
     )
 
 @router.callback_query(F.data == "buy_vpn")
-async def select_protocol_menu(callback: CallbackQuery):
+async def select_protocol_menu(callback: CallbackQuery, user_client: ArgentCoreClient):
     await callback.answer()
 
-    balance = await UserDao.get_user_balance(user_id=callback.from_user.id)
+    balance = await ArgentCoreClient.get_balance(user_id=callback.from_user.id)
 
     if balance < 2:
         await callback.message.answer(
@@ -145,11 +147,11 @@ async def vless_inst(callback: CallbackQuery):
 #         )
 
 @router.callback_query(F.data == "home")
-async def profile_menu(callback: CallbackQuery):
+async def profile_menu(callback: CallbackQuery, user_client: ArgentCoreClient):
     await callback.answer()
 
     display_name = callback.from_user.first_name
-    balance = await UserDao.get_user_balance(user_id=callback.from_user.id)
+    balance = await ArgentCoreClient.get_balance(user_id=callback.from_user.id)
     status_text = await VpnKeyDao.get_user_access_url(user_id=callback.from_user.id)
     expiry_info = balance // 2
     channel_link = "https://t.me/ArgentVPNru"
