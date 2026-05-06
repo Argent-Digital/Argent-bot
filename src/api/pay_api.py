@@ -5,7 +5,7 @@ from src.utils.texts import BotTexts
 
 router = APIRouter(prefix="/pays", tags=['pays'])
 
-@router.post("/succes_pay")
+@router.post("/success_pay")
 async def succes_pay(user_data: SuccesPay, request: Request):
     bot: Bot = request.app.state.bot
     try:
