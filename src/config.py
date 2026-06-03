@@ -4,7 +4,7 @@ from pydantic import SecretStr
 class Settings(BaseSettings):
     BOT_TOKEN: SecretStr
     TG_ADM_ID: int
-    CORE_URL: str = "http://127.0.0.1:8000"
+    CORE_URL: str
 
     model_config = SettingsConfigDict(env_file=".env")
 
