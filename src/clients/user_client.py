@@ -55,7 +55,12 @@ class ArgentCoreClient:
         
     async def get_balance(self, user_id: int):       
         try:
-            response = await self.client.get(f"/users/get_balance/{user_id}")
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)            
+            url = "/users/get_balance"
+            header = {'Authorization': f"Bearer {token}"}
+
+            response = await self.client.get(url=url, headers=header)
             response.raise_for_status()
             return response.json()
         except Exception as e:
