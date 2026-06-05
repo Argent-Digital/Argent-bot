@@ -1,7 +1,7 @@
 import httpx
 from src.auth.security import create_access_token
 from src.schemas.jwt_schema import TokenData
-from src.schemas.bot_schema import UserRegister, UserUpdateBalance, CheckUserBalance
+from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance
 
 class ArgentCoreClient:
     def __init__(self, base_url: str):
@@ -39,9 +39,14 @@ class ArgentCoreClient:
             print(f"Ошибка при регистрации пользователя: {e}")
             return None
         
-    async def update_balance(self, data: UserUpdateBalance, User_id: int):
+    async def update_balance(self, data: AdmUpdateBalance, user_id: int):
         try:
-            response = await self.client.post(f"/users/update_balance", json=data)
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)            
+            url = "/users/update_balance"
+            header = {'Authorization': f"Bearer {token}"}
+
+            response = await self.client.post(url, json=data.model_dump(), headers=header)
             response.raise_for_status()
             return response.json()
         except Exception as e:

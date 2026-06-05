@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 import asyncio
-from src.schemas.pay_schemas import SuccesPay
-from src.schemas.vpn_client_schema import BillingResponse
+from src.schemas.pay_schemas import SuccesPay, BillingResponse
 from aiogram import Bot
 from src.utils.texts import BotTexts
 from src.auth.dependencies import decode_access_token
