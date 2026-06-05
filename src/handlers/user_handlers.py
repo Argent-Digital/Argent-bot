@@ -9,7 +9,7 @@ router = Router()
 
 # start menu
 @router.message(CommandStart())
-async def start_menu(message: Message, command: CommandObject, bot: Bot, user_client: ArgentCoreClient)
+async def start_menu(message: Message, command: CommandObject, bot: Bot, user_client: ArgentCoreClient):
     args = command.args
     referrer_id = None
     user_id = message.from_user.id

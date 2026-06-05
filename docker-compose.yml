@@ -1,0 +1,15 @@
+services:
+  argent-bot-service:
+    build: .
+    ports:
+      - "8002:8000"
+    volumes:
+      - .:/app
+    restart: always
+    environment:
+          - PYTHONPATH=/app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
