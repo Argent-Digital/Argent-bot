@@ -1,4 +1,7 @@
 import httpx
+from src.auth.security import create_access_token
+from src.schemas.jwt_schema import TokenData
+from src.schemas.bot_schema import UserRegister, UserUpdateBalance, CheckUserBalance
 
 class ArgentCoreClient:
     def __init__(self, base_url: str):
@@ -14,33 +17,29 @@ class ArgentCoreClient:
 
     async def check_user(self, user_id: int) -> bool:
         try:
-            response = await self.client.get(f"/users/check/{user_id}")
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)
+
+            url = "/users/check"
+            header = {"Authorization": f"Bearer {token}" }
+
+            response = await self.client.get(url=url, headers=header)
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"Ошибка проверки юзера: {e}")
-            return False
+            return None
             
-    async def register_user(self, user_id: int,first_name: str, username: str = None, referrer_id: int = None):
-        user_data = {
-            "user_id": user_id,
-            "username": username,
-            "first_name": first_name,
-            "referrer_id": referrer_id
-            }
+    async def register_user(self, user_data: UserRegister):
         try:
-            response = await self.client.post(f"/users/register", json=user_data)
+            response = await self.client.post(f"/users/register", json=user_data.model_dump())
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"Ошибка при регистрации пользователя: {e}")
             return None
         
-    async def update_balance(self, user_id: int, amount: int):
-        data = {
-            "user_id": user_id,
-            "amount": amount
-        }
+    async def update_balance(self, data: UserUpdateBalance, User_id: int):
         try:
             response = await self.client.post(f"/users/update_balance", json=data)
             response.raise_for_status()
