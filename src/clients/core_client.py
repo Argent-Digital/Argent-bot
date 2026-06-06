@@ -1,7 +1,7 @@
 import httpx
 from src.auth.security import create_access_token
 from src.schemas.jwt_schema import TokenData
-from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance
+from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance, UpdateBalance
 from src.schemas.vpn_client_schema import AccessUrlUser, ReturnKeyForBot, CreateKeyApiBody
 
 class ArgentCoreClient:
@@ -41,7 +41,21 @@ class ArgentCoreClient:
             print(f"Ошибка при регистрации пользователя: {e}")
             return None
         
-    async def update_balance(self, data: AdmUpdateBalance, user_id: int):
+    async def adm_update_balance(self, data: AdmUpdateBalance, user_id: int):
+        try:
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)            
+            url = "/users/adm_update_balance"
+            header = {'Authorization': f"Bearer {token}"}
+
+            response = await self.client.post(url, json=data.model_dump(), headers=header)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Ошибка пополнения: {e}")
+            return None
+        
+    async def update_balance(self, data: UpdateBalance, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
             token = create_access_token(data = token_data)            
@@ -54,8 +68,8 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка пополнения: {e}")
             return None
-        
-    async def get_balance(self, user_id: int):       
+
+    async def get_balance(self, user_id: int) -> CheckUserBalance:       
         try:
             token_data = TokenData(user_id=user_id)
             token = create_access_token(data = token_data)            
@@ -64,7 +78,7 @@ class ArgentCoreClient:
 
             response = await self.client.get(url=url, headers=header)
             response.raise_for_status()
-            return response.json()
+            return CheckUserBalance(**response.json())
         except Exception as e:
             print(f"Ошибка получения баланса: {e}")
             return None

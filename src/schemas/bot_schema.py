@@ -10,6 +10,9 @@ class AdmUpdateBalance(BaseModel):
     user_id: int
     amount:int
 
+class UpdateBalance(BaseModel):
+    amount:int
+
 class CheckUserBalance(BaseModel):
     balance: int
 
