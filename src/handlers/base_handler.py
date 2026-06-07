@@ -1,4 +1,4 @@
-from aiogram import Router, F, Bot, types
+from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from src.utils.texts import BotTexts

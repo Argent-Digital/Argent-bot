@@ -23,7 +23,7 @@ async def key_menu(callback: CallbackQuery):
         )
         kb = UserKeyboards.key_buttons(protocol=key_data.protocol)
 
-    photo = FSInputFile(r"src/img/key_menu.png")
+    photo = FSInputFile(r"src\img\key_menu.png")
     
     await callback.message.edit_media(
         media=InputMediaPhoto(media=photo, caption=text, parse_mode='html'),
@@ -32,16 +32,16 @@ async def key_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "buy_vpn")
 async def select_protocol_menu(callback: CallbackQuery):
-    await callback.answer()
-
     data_balance = await core_client.get_balance(user_id=callback.from_user.id)
 
     if data_balance.balance < 2:
-        await callback.message.answer(
-            text=BotTexts.low_balance_notif()
+        await callback.answer(
+            text=BotTexts.low_balance_notif(),
+            show_alert=True
         )
 
     else:
+        await callback.answer()
         await callback.message.edit_caption(
             caption=BotTexts.select_protocol(),
             reply_markup=UserKeyboards.select_protocol(),

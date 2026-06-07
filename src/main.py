@@ -4,7 +4,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from src.loader_bot import bot, dp, core_client
 from src.api.pay_api import router as pay_router
-from src.handlers.user_handlers import router as user_router 
+from src.handlers.init_handler import get_main_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,7 +35,7 @@ app = FastAPI(
 app.state.bot = bot
 
 app.include_router(pay_router)
-dp.include_router(user_router)
+dp.include_router(get_main_router)
 
 if __name__ == "__main__":
     uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True) #8002 in container
