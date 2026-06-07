@@ -58,14 +58,16 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
 @router.callback_query(F.data == "back_start")
 async def back_start_menu(callback: CallbackQuery):
     await callback.answer()
-    await callback.message.delete()
-    
-    photo = FSInputFile(r"src/img/re_Start.png")
-    await callback.message.answer_photo(
-        photo=photo,
+
+    photo = FSInputFile("src/img/re_Start.png")
+    media = InputMediaPhoto(
+        media=photo,
         caption=BotTexts.start_message(callback.from_user.first_name),
-        reply_markup=UserKeyboards.start_menu(),
         parse_mode='html'
+    )
+    await callback.message.edit_media(
+        media=media,
+        reply_markup=UserKeyboards.start_menu()
     )
 
 @router.callback_query(F.data == "home")

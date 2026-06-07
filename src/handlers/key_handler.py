@@ -5,6 +5,9 @@ from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
 from src.loader_bot import core_client
 
+from src.schemas.bot_schema import UpdateBalance
+from src.schemas.vpn_client_schema import CreateKeyApiBody
+
 router = Router()
 
 # key menu
@@ -70,17 +73,39 @@ async def vless_inst(callback: CallbackQuery):
         reply_markup=UserKeyboards.inst_vle_but()
     )
 
-# @router.callback_query(F.data == "Vless_connect")
-# async def connect_vless_key(callback: CallbackQuery):
-#     await UserDao.update_balance(callback.from_user.id, -2)
+#file client app
+@router.callback_query(F.data == "win_out")
+async def win_out_file(callback: CallbackQuery):
+    await callback.message.answer_document(
+        document="BQACAgIAAxkBAANsaV1LoQKyU_tHKMIW3QqwZjTVQfcAAneRAALl4ulKC4UWPPhd4m84BA",
+        caption="Outline client for Windows"
+    )
 
-#     try:
-#         v_url, v_uuid = await XUIPanel.add_client(callback.from_user.id)
+@router.callback_query(F.data == "lin_out")
+async def lin_out_file(callback: CallbackQuery):
+    await callback.message.answer_document(
+        document="BQACAgIAAxkBAANzaV1XzyM0KeYie7pAUJcHRDrCbM0AAmeSAALl4ulKAAHUnL7E_gABFTgE",
+        caption="Outline client for linux"
+    )
 
-#         await VpnKeyDao.add_vpn_key(
-#             user_id=callback.from_user.id,
-#             key_name=f"user_{callback.from_user.id}",
-#             access_url=v_url,
-#             protocol="vless",
-#             vless_uuid=v_uuid
-#         )
+@router.callback_query(F.data == "win_vle")
+async def win_out_file(callback: CallbackQuery):
+    await callback.message.answer_document(
+        document="BQACAgIAAxkBAAIRnmmca7oxnbPjjhh9QOSGInApbkilAAJTkAACeWLpSARAM4oHPdVxOgQ",
+        caption="Vless client for Windows"
+    )
+
+@router.callback_query(F.data == "Vless_connect")
+async def connect_vless_key(callback: CallbackQuery):
+    try:
+        body=CreateKeyApiBody(protocol="vless")
+        await core_client.create_key(body=body, user_id=callback.from_user.id)
+
+        data = UpdateBalance(amount=-2)
+        await core_client.update_balance(data=data, user_id=callback.from_user.id)
+
+        await key_menu(callback)
+
+    except Exception as e:
+        print(f"Ошибка при создании ключа: {e}")
+        await callback.answer("❌ Не удалось создать ключ. Попробуй позже.", show_alert=True)

@@ -99,22 +99,21 @@ class ArgentCoreClient:
             print(f"Error get access key: {e}")
             return None
         
-    async def create_key(self, protocol: str, user_id: int) -> ReturnKeyForBot:
+    async def create_key(self, body: CreateKeyApiBody, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
             token = create_access_token(data = token_data)            
             url = "/vpn-core/create_key"
             header = {'Authorization': f"Bearer {token}"}
-            body = CreateKeyApiBody(protocol=protocol)
-
+            
             response = await self.client.post(url=url,json=body.model_dump(), headers=header)
             response.raise_for_status()
-            return ReturnKeyForBot(**response.json())
+            return response.json()
         except Exception as e:
             print(f"Error create key: {e}")
             return None
         
-    async def create_key(self, user_id: int):
+    async def delete_key(self, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
             token = create_access_token(data = token_data)            
@@ -126,4 +125,4 @@ class ArgentCoreClient:
             return response.json()      
         except Exception as e:
             print(f"Error del key: {e}")
-            return None 
+            return None
