@@ -46,7 +46,7 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
         except Exception as e:
             print(f"Не удалось отправить уведомление рефереру {referrer_id}: {e}")
 
-    photo = FSInputFile(r"src\img\re_Start.png")
+    photo = FSInputFile(r"src/img/re_Start.png")
 
     await message.answer_photo(
         photo = photo,
@@ -60,7 +60,7 @@ async def back_start_menu(callback: CallbackQuery):
     await callback.answer()
     await callback.message.delete()
     
-    photo = FSInputFile(r"src\img\re_Start.png")
+    photo = FSInputFile(r"src/img/re_Start.png")
     await callback.message.answer_photo(
         photo=photo,
         caption=BotTexts.start_message(callback.from_user.first_name),
@@ -77,7 +77,7 @@ async def profile_menu(callback: CallbackQuery):
     status_text = await core_client.get_user_access_url(user_id=callback.from_user.id)
     expiry_info = data_balance.balance // 2
     channel_link = "https://t.me/ArgentVPNru"
-    photo = FSInputFile(r"src\img\profile.png")
+    photo = FSInputFile(r"src/img/profile.png")
 
     if status_text is not None:
         status_text = "✅ Работает"

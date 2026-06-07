@@ -23,7 +23,7 @@ async def key_menu(callback: CallbackQuery):
         )
         kb = UserKeyboards.key_buttons(protocol=key_data.protocol)
 
-    photo = FSInputFile(r"src\img\key_menu.png")
+    photo = FSInputFile(r"src/img/key_menu.png")
     
     await callback.message.edit_media(
         media=InputMediaPhoto(media=photo, caption=text, parse_mode='html'),
@@ -53,7 +53,7 @@ async def outline_inst(callback: CallbackQuery):
     await callback.answer()
 
 
-    photo = FSInputFile(r"src\img\inst.png")
+    photo = FSInputFile(r"src/img/inst.png")
     await callback.message.edit_media(
         media= InputMediaPhoto(media=photo, caption=BotTexts.instructions_out(), parse_mode='html'),
         reply_markup=UserKeyboards.inst_out_but()
@@ -64,7 +64,7 @@ async def vless_inst(callback: CallbackQuery):
     await callback.answer()
 
 
-    photo = FSInputFile(r"src\img\inst.png")
+    photo = FSInputFile(r"src/img/inst.png")
     await callback.message.edit_media(
         media= InputMediaPhoto(media=photo, caption=BotTexts.instructions_vle(), parse_mode='html'),
         reply_markup=UserKeyboards.inst_vle_but()

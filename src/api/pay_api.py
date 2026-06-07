@@ -3,14 +3,14 @@ import asyncio
 from src.schemas.pay_schemas import SuccesPay, BillingResponse
 from aiogram import Bot
 from src.utils.texts import BotTexts
-from src.auth.dependencies import decode_access_token
+from src.auth.dependencies import get_current_user_id
 from src.auth.verify_system_token import veify_system_token
 from src.utils.semaphore_sending_notif import send_with_semaphore
 
 router = APIRouter(prefix="/pays", tags=['pays'])
 
 @router.post("/success_pay")
-async def succes_pay(user_data: SuccesPay, request: Request, user_id: int = Depends(decode_access_token)):
+async def succes_pay(user_data: SuccesPay, request: Request, user_id: int = Depends(get_current_user_id)):
     bot: Bot = request.app.state.bot
     try:
         await bot.send_message(

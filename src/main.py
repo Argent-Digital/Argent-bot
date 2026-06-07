@@ -10,6 +10,9 @@ from src.handlers.init_handler import get_main_router
 async def lifespan(app: FastAPI):
     print("starting Argent bot")
 
+    if not dp.sub_routers:
+        dp.include_router(get_main_router())
+
     polling_tasks = asyncio.create_task(
         dp.start_polling(bot, core_client=core_client)
     )
@@ -35,7 +38,6 @@ app = FastAPI(
 app.state.bot = bot
 
 app.include_router(pay_router)
-dp.include_router(get_main_router)
 
 if __name__ == "__main__":
     uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True) #8002 in container
