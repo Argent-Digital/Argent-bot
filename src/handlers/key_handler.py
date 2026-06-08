@@ -95,6 +95,8 @@ async def win_out_file(callback: CallbackQuery):
         caption="Vless client for Windows"
     )
 
+
+#key control
 @router.callback_query(F.data == "Vless_connect")
 async def connect_vless_key(callback: CallbackQuery):
     try:
@@ -109,3 +111,13 @@ async def connect_vless_key(callback: CallbackQuery):
     except Exception as e:
         print(f"Ошибка при создании ключа: {e}")
         await callback.answer("❌ Не удалось создать ключ. Попробуй позже.", show_alert=True)
+
+@router.callback_query(F.data == "del_key")
+async def delete_key(callback: CallbackQuery):
+    try:
+        await core_client.delete_key(user_id=callback.from_user.id)
+
+        await key_menu(callback)
+    except Exception as e:
+        print(f"Ошибка при удалении ключа: {e}")
+        await callback.answer("❌ Не удалось удалить ключ. Попробуй позже.", show_alert=True)
