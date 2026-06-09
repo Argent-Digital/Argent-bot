@@ -112,6 +112,20 @@ async def connect_vless_key(callback: CallbackQuery):
         print(f"Ошибка при создании ключа: {e}")
         await callback.answer("❌ Не удалось создать ключ. Попробуй позже.", show_alert=True)
 
+@router.callback_query(F.data == "Outline_connect")
+async def connect_outline_key(callback: CallbackQuery):
+    try:
+        body=CreateKeyApiBody(protocol="outline")
+        await core_client.create_key(body=body, user_id=callback.from_user.id)
+
+        amount = UpdateBalance(amount=-2)
+        await core_client.update_balance(data=amount, user_id=callback.from_user.id)
+        
+        await key_menu(callback)
+    except Exception as e:
+        print(f"Ошибка при создании ключа: {e}")
+        await callback.answer("❌ Не удалось создать ключ. Попробуй позже.", show_alert=True)
+
 @router.callback_query(F.data == "del_key")
 async def delete_key(callback: CallbackQuery):
     try:
