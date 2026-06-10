@@ -12,3 +12,9 @@ class UserWithLowBalance(BaseModel):
 class BillingResponse(BaseModel):
     deleted_keys: List[int]
     user_lower: List[int]
+
+class CreatePaymentUrl(BaseModel):
+    amount: int
+
+class ReturnUrl(BaseModel):
+    url: str

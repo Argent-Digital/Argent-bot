@@ -158,4 +158,33 @@ class UserKeyboards:
             ]
         )
         return keyboards
+    
+    @staticmethod
+    def select_tarif():
+        pay_60 = InlineKeyboardButton(text="🔥 1 Месяц — 60 ₽", callback_data="pay_60")
+        pay_120 = InlineKeyboardButton(text="⭐ 2 Месяца — 120 ₽", callback_data="pay_120")
+        pay_180 = InlineKeyboardButton(text="🌟 3 Месяца — 180 ₽", callback_data="pay_180")
+        back = InlineKeyboardButton(text="⬅️ Назад", callback_data="home")
+
+        keyboards = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [pay_60],
+                [pay_120],
+                [pay_180],
+                [back]
+            ]
+        )
+        return keyboards
+
+    @staticmethod
+    def payed(url: str):
+        pay = InlineKeyboardButton(text="💳 Перейти к оплате", url=url)
+        back = InlineKeyboardButton(text="⬅️ Назад", callback_data="select_tarif")
         
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [pay],
+                [back]
+            ]
+        )
+        return keyboard
