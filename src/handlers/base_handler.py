@@ -40,7 +40,7 @@ async def start_menu(message: Message, command: CommandObject, bot: Bot):
         try:
             await bot.send_message(
                 chat_id=referrer_id,
-                text = BotTexts.ref_notif,
+                text = BotTexts.ref_notif(),
                 parse_mode='html'
             )
         except Exception as e:
