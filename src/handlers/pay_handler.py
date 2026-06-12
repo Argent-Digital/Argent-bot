@@ -5,7 +5,6 @@ from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
 from src.loader_bot import pay_client
 from src.schemas.pay_schemas import CreatePaymentUrl
-import traceback
 
 router = Router()
 
@@ -20,12 +19,6 @@ async def pay_menu(callback: CallbackQuery):
         reply_markup=UserKeyboards.select_tarif(),
         parse_mode="html"
     )
-
-@router.callback_query(F.data == "select_tarif")
-async def back_payment(callback: CallbackQuery):
-    await callback.answer()
-
-    pay_menu(callback)
 
 @router.callback_query(F.data.startswith("pay_"))
 async def payment_menu(callback: CallbackQuery):
@@ -46,7 +39,5 @@ async def payment_menu(callback: CallbackQuery):
             parse_mode="html"
         )
     except Exception as e:
-        await callback.answer("❌ Произошла ошибка. Попробуй позже.", show_alert=True)
         print(f"🚨 АЛАРМ! Реальная ошибка: {repr(e)}", flush=True)
-        traceback.print_exc() # Выведет весь путь ошибки прямо с номерами строк
         await callback.answer("❌ Произошла ошибка. Попробуй позже.", show_alert=True)

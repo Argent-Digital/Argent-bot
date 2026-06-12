@@ -179,7 +179,7 @@ class UserKeyboards:
     @staticmethod
     def payed(url: str):
         pay = InlineKeyboardButton(text="💳 Перейти к оплате", url=url)
-        back = InlineKeyboardButton(text="⬅️ Назад", callback_data="select_tarif")
+        back = InlineKeyboardButton(text="⬅️ Назад", callback_data="pay")
         
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
