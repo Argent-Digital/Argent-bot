@@ -58,7 +58,7 @@ Windows | macOS | Linux 💻
     @staticmethod 
     def profile_menu(display_name: str, balance: int, status_text: str, expiry_info: int, channel_link: str):
         return(f"""
-<b>👤 Профиль </b>
+<b>🦀 Профиль </b>
                      
 <b>{display_name}, ваш баланс: {balance} руб.</b>
 
@@ -172,7 +172,7 @@ Windows | macOS | Linux 💻
     
     @staticmethod
     def pay_succes(amount: int):
-        return f"""✅ <b>Оплата прошла успешно!</b>
+        return f"""✅🏝️ <b>Оплата прошла успешно!</b>
 
 На ваш баланс зачислено: <i>{amount} руб.</i>
 Спасибо, что выбираете Argent Proxy!"""
@@ -193,7 +193,7 @@ Windows | macOS | Linux 💻
     @staticmethod
     def select_tarif():
         return """
-<b>💳 Выберите тарифный план:</b>
+<b>💳🔆 Выберите тарифный план:</b>
 
 <i>Деньги будут зачислены на баланс, списание происходит ежедневно по 2 ₽.</i>
 """
