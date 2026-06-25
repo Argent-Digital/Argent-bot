@@ -114,8 +114,6 @@ async def ref_prog(callback: CallbackQuery):
     bot_info = await callback.bot.get_me()
     ref_link = f"http://t.me/{bot_info.username}?start={callback.from_user.id}"
 
-    await callback.message.delete()
-
     await callback.message.answer(
         text=BotTexts.ref_prog(ref_link=ref_link),
         reply_markup=UserKeyboards.ref_prog(),
@@ -126,7 +124,7 @@ async def ref_prog(callback: CallbackQuery):
 @router.callback_query(F.data == "partner_menu")
 async def partner_menu(callback: CallbackQuery):
     await callback.answer()
-    await callback.message.delete()
+
     await callback.message.answer(
         text=BotTexts.partner_menu(),
         reply_markup=UserKeyboards.partner_menu(),

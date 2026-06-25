@@ -12,8 +12,6 @@ router = Router()
 async def pay_menu(callback: CallbackQuery):
     await callback.answer()
 
-    await callback.message.delete()
-
     await callback.message.answer(
         text=BotTexts.select_tarif(),
         reply_markup=UserKeyboards.select_tarif(),
@@ -31,9 +29,7 @@ async def payment_menu(callback: CallbackQuery):
     try:
         url = await pay_client.create_payment_url(data_url=data_url, user_id=user_id)
 
-        await callback.message.delete()
-
-        await callback.message.answer(
+        await callback.message.edit_text(
             text=BotTexts.payment_menu(amount=amount, user_id=user_id),
             reply_markup=UserKeyboards.payed(url=url.url),
             parse_mode="html"
