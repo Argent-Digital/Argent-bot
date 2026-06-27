@@ -21,9 +21,6 @@ class CheckUserBalance(BaseModel):
 class StatsResponse(BaseModel):
     users: int
     keys: int
-    traffic: float
-    rx: float
-    tx: float
 
 class DistResponse(BaseModel):
     count: int
