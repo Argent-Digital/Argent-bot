@@ -2,7 +2,7 @@ import asyncio
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
+from aiogram.types import Message, CallbackQuery
 from src.utils.distributor import run_distribution
 from src.utils.texts import BotTexts
 from src.keyboards.user_keyboards import UserKeyboards
@@ -16,7 +16,7 @@ router = Router()
 @router.message(Command("panel"))
 async def cmd_stats(message: Message):
     user_id = message.from_user.id
-    if user_id is settings.TG_ADM_ID:
+    if user_id == settings.TG_ADM_ID:
         stats = await core_client.get_adm_stats(user_id=user_id)
 
         await message.answer(
