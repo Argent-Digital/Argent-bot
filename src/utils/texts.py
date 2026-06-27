@@ -218,10 +218,6 @@ Windows | macOS | Linux 💻
         f"📊 **Системная статистика Argent**\n\n"
         f"👥 Пользователей: ` {stats.users} `\n"
         f"🔑 Активных ключей: ` {stats.keys} `\n\n"
-        f"🌐 **Трафик за сегодня:**\n"
-        f"📥 Входящий: ` {stats.rx} GB `\n"
-        f"📤 Исходящий: ` {stats.tx} GB `\n"
-        f"🔋 **ИТОГО: {stats.traffic} GB**\n\n"
     )
         return text
     

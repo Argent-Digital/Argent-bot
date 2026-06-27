@@ -16,7 +16,7 @@ router = Router()
 @router.message(Command("panel"))
 async def cmd_stats(message: Message):
     user_id = message.from_user.id
-    if user_id is settings.TG_ADM_ID:
+    if user_id == settings.TG_ADM_ID:
         stats = await core_client.get_adm_stats(user_id=user_id)
 
         await message.answer(
