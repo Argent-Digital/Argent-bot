@@ -1,8 +1,9 @@
 import httpx
 from src.auth.security import create_access_token
 from src.schemas.jwt_schema import TokenData
-from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance, UpdateBalance
+from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance, UpdateBalance, StatsResponse
 from src.schemas.vpn_client_schema import AccessUrlUser, ReturnKeyForBot, CreateKeyApiBody
+from typing import List
 
 class ArgentCoreClient:
     def __init__(self, base_url: str):
@@ -82,7 +83,36 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка получения баланса: {e}")
             return None
+    
+    #Admin
+    async def get_adm_stats(self, user_id: int) -> StatsResponse:
+        try:
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)  
+            header = {'Authorization': f"Bearer {token}"}
+            url = "/users/adm_stats"
+
+            response = await self.client.get(url=url, headers=header)
+            response.raise_for_status()
+            return StatsResponse(**response.json())
+        except Exception as e:
+            print(f"Ошибка получения статистики: {e}")
+            return None
         
+    async def get_users_list(self, user_id: int) -> List[int]:
+        try:
+            token_data = TokenData(user_id=user_id)
+            token = create_access_token(data = token_data)  
+            header = {'Authorization': f"Bearer {token}"}
+            url = "/users/get_users_list"
+
+            response = await self.client.get(url=url, headers=header)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Ошибка получения списка юзеров: {e}")
+            return None
+
 
     #for keys
     async def get_user_access_url(self, user_id: int) -> AccessUrlUser:

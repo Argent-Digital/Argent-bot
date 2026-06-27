@@ -18,3 +18,13 @@ class CheckUserBalance(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class StatsResponse(BaseModel):
+    users: int
+    keys: int
+    traffic: float
+    rx: float
+    tx: float
+
+class DistResponse(BaseModel):
+    count: int
+    count_banned: int

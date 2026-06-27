@@ -1,3 +1,5 @@
+from src.schemas.bot_schema import StatsResponse
+
 class BotTexts:
     @staticmethod
     def start_message(name: str):
@@ -208,4 +210,28 @@ Windows | macOS | Linux 💻
 📍 <b>ID пользователя:</b> <code>{user_id}</code>
 
 <i>После подтверждения платежа банком, средства будут зачислены на ваш баланс автоматически.</i>
+"""
+    
+    @staticmethod
+    def stats_menu(stats: StatsResponse):
+        text = (
+        f"📊 **Системная статистика Argent**\n\n"
+        f"👥 Пользователей: ` {stats.users} `\n"
+        f"🔑 Активных ключей: ` {stats.keys} `\n\n"
+        f"🌐 **Трафик за сегодня:**\n"
+        f"📥 Входящий: ` {stats.rx} GB `\n"
+        f"📤 Исходящий: ` {stats.tx} GB `\n"
+        f"🔋 **ИТОГО: {stats.traffic} GB**\n\n"
+    )
+        return text
+    
+    @staticmethod
+    def adm_update(amount: int):
+        return f"""
+💰 <b>Баланс пополнен!</b>
+
+Администрация зачислила вам <b>{amount}₽</b> на внутренний счет.
+Используйте их для продления или покупки новых ключей.
+
+<i>Спасибо, что вы с нами!</i> 🚀
 """
