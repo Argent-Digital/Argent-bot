@@ -188,3 +188,25 @@ class UserKeyboards:
             ]
         )
         return keyboard
+    
+    @staticmethod
+    def stats_adm_button():
+        distribution = InlineKeyboardButton(text="Запусить рассылку", callback_data="distribution")
+        users_payed = InlineKeyboardButton(text="Пополнить юзера", callback_data="adm_update_balance")
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [distribution, users_payed],
+            ]
+        )
+        return keyboard
+    
+    @staticmethod
+    def dist_query():
+        yes = InlineKeyboardButton(text="Да", callback_data="Ye")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [yes],
+            ]
+        )
+        return keyboard
