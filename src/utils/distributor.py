@@ -2,6 +2,8 @@ import asyncio
 from aiogram import Bot
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
 from src.schemas.bot_schema import DistResponse
+from src.config import settings
+
 
 async def run_distribution(bot: Bot, user_ids: list[int], post_text: str):
     count = 0
@@ -26,5 +28,12 @@ async def run_distribution(bot: Bot, user_ids: list[int], post_text: str):
             continue
         except Exception:
             continue
-            
+
+
+    await bot.send_message(
+        chat_id=settings.TG_ADM_ID,
+        text=f"Результаты рассылки:\nУспешно({count})\nВ бане у {count_banned} юзеров!"
+    )
+
+
     return DistResponse(count=count, count_banned=count_banned)

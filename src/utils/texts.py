@@ -216,9 +216,9 @@ Windows | macOS | Linux 💻
     def stats_menu(stats: StatsResponse):
         text = (
         f"📊 **Системная статистика Argent**\n\n"
-        f"👥 Пользователей: ` {stats.users} `\n"
-        f"🔑 Активных ключей: ` {stats.keys} `\n\n"
-    )
+        f"👥 Пользователей: {stats.users} \n"
+        f"🔑 Активных ключей: {stats.keys}\n\n"
+        )
         return text
     
     @staticmethod
