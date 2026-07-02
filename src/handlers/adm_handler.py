@@ -75,7 +75,7 @@ async def adm_dist(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(post_text=post)
 
     await message.answer(text=post, parse_mode="html")
-    await message.answer(text="Пост принят, начинаем рассылку?", reply_markup=UserKeyboards.dist_query)
+    await message.answer(text="Пост принят, начинаем рассылку?", reply_markup=UserKeyboards.dist_query())
 
 @router.callback_query(F.data=="Ye")
 async def start_dist(callback: CallbackQuery, state: FSMContext, bot: Bot):
