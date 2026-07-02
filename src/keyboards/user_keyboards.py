@@ -105,8 +105,8 @@ class UserKeyboards:
     @staticmethod
     def inst_vle_but():
         android = InlineKeyboardButton(text='Android', url="https://play.google.com/store/apps/details?id=com.v2raytun.android")
-        ios = InlineKeyboardButton(text='Ios', url="https://apps.apple.com/app/id6476628951")
-        mac = InlineKeyboardButton(text='MacOS', url="https://apps.apple.com/us/app/v2raytun/id6476628951")
+        ios = InlineKeyboardButton(text='Ios', url="https://apps.apple.com/us/app/v2ray-client/id6747379524")
+        mac = InlineKeyboardButton(text='MacOS', url="https://apps.apple.com/ru/app/v2ray-client/id6747379524")
         win = InlineKeyboardButton(text='Windows', callback_data='win_vle')
         lin = InlineKeyboardButton(text='Linux', url="https://github.com/MatsuriDayo/nekoray/releases")
         back = InlineKeyboardButton(text='Вернуться↩️', callback_data='my_keys')
