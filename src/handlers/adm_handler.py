@@ -80,7 +80,7 @@ async def adm_dist(message: Message, state: FSMContext, bot: Bot):
 @router.callback_query(F.data=="Ye")
 async def start_dist(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
-    post = await data.get("post_text")
+    post = data.get("post_text")
 
     user_ids = await core_client.get_users_list(user_id=callback.message.from_user.id)
     if user_ids is None:
