@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.14-debian-trixie AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
