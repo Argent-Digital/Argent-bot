@@ -5,6 +5,7 @@ services:
     ports:
       - "8002:8000"
     restart: always
+    env_file: .env
     environment:
       - PYTHONPATH=/app
     logging:
