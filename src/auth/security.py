@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from jose import jwt, JWTError
-from typing import Optional
+
+from jose import JWTError, jwt
 
 from src.config import settings
 from src.schemas.jwt_schema import TokenData
+
 
 def create_access_token(data: TokenData) -> str:
 
@@ -19,7 +20,7 @@ def create_access_token(data: TokenData) -> str:
     )
     return encode_jwt
 
-def decode_access_token(token: str) -> Optional[TokenData]:
+def decode_access_token(token: str) -> TokenData | None:
     try:
         payload = jwt.decode(
             token,
@@ -30,8 +31,8 @@ def decode_access_token(token: str) -> Optional[TokenData]:
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
             return None
-        
+
         return TokenData(user_id=int(user_id_str))
-    
+
     except (JWTError, ValueError):
         return None

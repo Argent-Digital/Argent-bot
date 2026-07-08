@@ -1,8 +1,8 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 
 class UserKeyboards:
-    
+
     @staticmethod
     def start_menu():
         btn_conn = InlineKeyboardButton(text='Подключить 📲', callback_data='my_keys')
@@ -18,13 +18,13 @@ class UserKeyboards:
             ]
         )
         return keyboard
-    
+
     @staticmethod
     def key_buttons(protocol: str | None,):
         instsel = "outline_inst" if protocol == "outline" else "vless_inst"
 
         btn_create = InlineKeyboardButton(text="➕ Создать доступ (2₽/сутки)", callback_data="buy_vpn")
-        btn_del = InlineKeyboardButton(text="🗑 Удалить ключ полностью", callback_data=f"del_key")
+        btn_del = InlineKeyboardButton(text="🗑 Удалить ключ полностью", callback_data="del_key")
         btn_installs = InlineKeyboardButton(text="📖 Установить приложение", callback_data=instsel)
         btn_back = InlineKeyboardButton(text="⬅️ В профиль", callback_data="home")
 
@@ -46,7 +46,7 @@ class UserKeyboards:
             )
 
         return keyboard
-    
+
     @staticmethod
     def select_protocol():
         btn_out = InlineKeyboardButton(text="🚀 VLESS (Скорость)", callback_data="Vless_connect")
@@ -60,7 +60,7 @@ class UserKeyboards:
         )
 
         return keyboard
-    
+
     @staticmethod
     def profile_buttons():
         btn_pay = InlineKeyboardButton(text='Пополнить баланс 💳', callback_data='pay')
@@ -81,7 +81,7 @@ class UserKeyboards:
         )
 
         return keyboard
-    
+
     @staticmethod
     def inst_out_but():
         android = InlineKeyboardButton(text='Android', url="https://play.google.com/store/apps/details?id=org.outline.android.client&pcampaignid=web_share")
@@ -101,7 +101,7 @@ class UserKeyboards:
         )
 
         return keyboards
-    
+
     @staticmethod
     def inst_vle_but():
         android = InlineKeyboardButton(text='Android', url="https://play.google.com/store/apps/details?id=com.v2raytun.android")
@@ -121,7 +121,7 @@ class UserKeyboards:
         )
 
         return keyboards
-    
+
     @staticmethod
     def about_service():
         btn_ofer = InlineKeyboardButton(text="📄 Оферта", url="https://telegra.ph/Publichnaya-oferta-servisa-Argent-Digital-01-21")
@@ -135,7 +135,7 @@ class UserKeyboards:
             ]
         )
         return keyboards
-    
+
     @staticmethod
     def ref_prog():
         back = InlineKeyboardButton(text="⬅️ Назад в профиль", callback_data="home")
@@ -145,7 +145,7 @@ class UserKeyboards:
             ]
         )
         return keyboards
-    
+
     @staticmethod
     def partner_menu():
         btt_support = InlineKeyboardButton(text="🆘 Связаться с поддержкой", url="https://t.me/pyxxisss")
@@ -158,7 +158,7 @@ class UserKeyboards:
             ]
         )
         return keyboards
-    
+
     @staticmethod
     def select_tarif():
         pay_60 = InlineKeyboardButton(text="🔥 1 Месяц — 60 ₽", callback_data="pay_60")
@@ -180,7 +180,7 @@ class UserKeyboards:
     def payed(url: str):
         pay = InlineKeyboardButton(text="💳 Перейти к оплате", url=url)
         back = InlineKeyboardButton(text="⬅️ Назад", callback_data="pay")
-        
+
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [pay],
@@ -188,7 +188,7 @@ class UserKeyboards:
             ]
         )
         return keyboard
-    
+
     @staticmethod
     def stats_adm_button():
         distribution = InlineKeyboardButton(text="Запусить рассылку", callback_data="distribution")
@@ -200,7 +200,7 @@ class UserKeyboards:
             ]
         )
         return keyboard
-    
+
     @staticmethod
     def dist_query():
         yes = InlineKeyboardButton(text="Да", callback_data="Ye")

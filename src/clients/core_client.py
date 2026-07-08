@@ -1,9 +1,11 @@
+
 import httpx
+
 from src.auth.security import create_access_token
+from src.schemas.bot_schema import AdmUpdateBalance, CheckUserBalance, StatsResponse, UpdateBalance, UserRegister
 from src.schemas.jwt_schema import TokenData
-from src.schemas.bot_schema import UserRegister, CheckUserBalance, AdmUpdateBalance, UpdateBalance, StatsResponse
-from src.schemas.vpn_client_schema import AccessUrlUser, ReturnKeyForBot, CreateKeyApiBody
-from typing import List
+from src.schemas.vpn_client_schema import AccessUrlUser, CreateKeyApiBody
+
 
 class ArgentCoreClient:
     def __init__(self, base_url: str):
@@ -15,7 +17,7 @@ class ArgentCoreClient:
             )
 
     async def close(self):
-        await self.client.aclose()    
+        await self.client.aclose()
 
 
     async def check_user(self, user_id: int) -> bool:
@@ -32,20 +34,20 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка проверки юзера: {e}")
             return None
-            
+
     async def register_user(self, user_data: UserRegister):
         try:
-            response = await self.client.post(f"/users/register", json=user_data.model_dump())
+            response = await self.client.post("/users/register", json=user_data.model_dump())
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"Ошибка при регистрации пользователя: {e}")
             return None
-        
+
     async def adm_update_balance(self, data: AdmUpdateBalance, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/users/adm_update_balance"
             header = {'Authorization': f"Bearer {token}"}
 
@@ -55,11 +57,11 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка пополнения: {e}")
             return None
-        
+
     async def update_balance(self, data: UpdateBalance, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/users/update_balance"
             header = {'Authorization': f"Bearer {token}"}
 
@@ -70,10 +72,10 @@ class ArgentCoreClient:
             print(f"Ошибка пополнения: {e}")
             return None
 
-    async def get_balance(self, user_id: int) -> CheckUserBalance:       
+    async def get_balance(self, user_id: int) -> CheckUserBalance:
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/users/get_balance"
             header = {'Authorization': f"Bearer {token}"}
 
@@ -83,12 +85,12 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка получения баланса: {e}")
             return None
-    
+
     #Admin
     async def get_adm_stats(self, user_id: int) -> StatsResponse:
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)  
+            token = create_access_token(data = token_data)
             header = {'Authorization': f"Bearer {token}"}
             url = "/users/adm_stats"
 
@@ -98,11 +100,11 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Ошибка получения статистики: {e}")
             return None
-        
-    async def get_users_list(self, user_id: int) -> List[int]:
+
+    async def get_users_list(self, user_id: int) -> list[int]:
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)  
+            token = create_access_token(data = token_data)
             header = {'Authorization': f"Bearer {token}"}
             url = "/users/get_users_list"
 
@@ -118,7 +120,7 @@ class ArgentCoreClient:
     async def get_user_access_url(self, user_id: int) -> AccessUrlUser:
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/vpn-core/access_url"
             header = {'Authorization': f"Bearer {token}"}
 
@@ -128,31 +130,31 @@ class ArgentCoreClient:
         except Exception as e:
             print(f"Error get access key: {e}")
             return None
-        
+
     async def create_key(self, body: CreateKeyApiBody, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/vpn-core/create_key"
             header = {'Authorization': f"Bearer {token}"}
-            
+
             response = await self.client.post(url=url,json=body.model_dump(), headers=header)
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"Error create key: {e}")
             return None
-        
+
     async def delete_key(self, user_id: int):
         try:
             token_data = TokenData(user_id=user_id)
-            token = create_access_token(data = token_data)            
+            token = create_access_token(data = token_data)
             url = "/vpn-core/del_key"
             header = {'Authorization': f"Bearer {token}"}
 
             response = await self.client.delete(url=url, headers=header)
             response.raise_for_status()
-            return response.json()      
+            return response.json()
         except Exception as e:
             print(f"Error del key: {e}")
             return None

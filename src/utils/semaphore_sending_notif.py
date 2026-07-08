@@ -1,4 +1,5 @@
 import asyncio
+
 from aiogram import Bot
 
 semaphore = asyncio.Semaphore(20)

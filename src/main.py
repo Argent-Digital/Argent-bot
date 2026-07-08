@@ -1,10 +1,13 @@
-from fastapi import FastAPI
-import uvicorn
 import asyncio
 from contextlib import asynccontextmanager
-from src.loader_bot import bot, dp, core_client, pay_client
+
+import uvicorn
+from fastapi import FastAPI
+
 from src.api.pay_api import router as pay_router
 from src.handlers.init_handler import get_main_router
+from src.loader_bot import bot, core_client, dp, pay_client
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,9 +1,10 @@
 from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
-from src.config import settings
+from aiogram.enums import ParseMode
+
 from src.clients.core_client import ArgentCoreClient
 from src.clients.pay_client import ArgentPayClient
+from src.config import settings
 
 bot = Bot(
     token= settings.BOT_TOKEN.get_secret_value(),

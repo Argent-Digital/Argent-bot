@@ -1,5 +1,6 @@
 from src.schemas.bot_schema import StatsResponse
 
+
 class BotTexts:
     @staticmethod
     def start_message(name: str):
@@ -15,21 +16,21 @@ iOS & Android 📱
 Windows | macOS | Linux 💻
 """
         )
-    
+
     @staticmethod
     def ref_notif():
         return (
-            f"""
+            """
 💵 Вам начислено <b>60₽</b> за приглашение друга!
 """
         )
-    
+
     @staticmethod
     def none_key_message():
-        return(f"""
+        return("""
 <b>📱 У вас пока нет созданных ключей.</b>
 """)
-    
+
     @staticmethod
     def for_active_key_user(protocol: str, access_url: str):
         return(f"""
@@ -44,20 +45,20 @@ Windows | macOS | Linux 💻
 
 <i>Вы можете использовать этот ключ на 10 устройствах одновременно.</i>
 """)
-    
+
     @staticmethod
     def select_protocol():
-        return(f"""
+        return("""
 🛜Выберете протокол:
 """)
-    
+
     @staticmethod
     def low_balance_notif():
-        return(f"""
+        return("""
 ❌ Недостаточно средств (нужно минимум 2₽)
 """)
-    
-    @staticmethod 
+
+    @staticmethod
     def profile_menu(display_name: str, balance: int, status_text: str, expiry_info: int, channel_link: str):
         return(f"""
 <b>👤 Профиль </b>
@@ -71,10 +72,10 @@ Windows | macOS | Linux 💻
 
 <b>📍 Наш канал: <a href='{channel_link}'>Подписаться</a></b>
 """)
-    
+
     @staticmethod
     def instructions_out():
-        return(f"""
+        return("""
 <b>Инструкция по подключению Argent Proxy 🚀</b>
 
 1️⃣ <b>Скачайте приложение Outline.</b>
@@ -95,7 +96,7 @@ Windows | macOS | Linux 💻
 
     @staticmethod
     def instructions_vle():
-        return(f"""
+        return("""
 <b>Инструкция по подключению Argent Proxy 🚀</b>
 
 1️⃣ <b>Скачайте приложение в зависимости от вашей ос (Для пк и телефонов приложения отличаются!).</b>
@@ -116,7 +117,7 @@ Windows | macOS | Linux 💻
 
     @staticmethod
     def about_service():
-        return(f"""
+        return("""
     Argent Proxy — это высокоскоростной сервис доступа к частным прокси-серверам на базе протокола Shadowsocks (технология Outline).
 
 Наши услуги включают:
@@ -131,7 +132,7 @@ Windows | macOS | Linux 💻
 
 Техническая реализация: Доступ предоставляется путем генерации уникального ключа доступа, который вставляется в официальное приложение Outline. Мы не ограничиваем объем трафика.
 """)
-    
+
     @staticmethod
     def ref_prog(ref_link: str):
         return(f"""
@@ -144,10 +145,10 @@ Windows | macOS | Linux 💻
 <code>{ref_link}</code>
 <i>(Нажмите на ссылку, чтобы скопировать)</i>
 """)
-    
+
     @staticmethod
     def partner_menu():
-        return(f"""
+        return("""
 <b>🧑‍💻 Партнерская программа</b>
     
 <b>Создавай креативный контент в соцсетях, набирай просмотры, получай деньги на баланс!🤩</b>
@@ -171,14 +172,14 @@ Windows | macOS | Linux 💻
 
 <b>Забирай ссылку в меню реферальной программы и начинай снимать!</b>
 """)
-    
+
     @staticmethod
     def pay_succes(amount: int):
         return f"""✅ <b>Оплата прошла успешно!</b>
 
 На ваш баланс зачислено: <i>{amount} руб.</i>
 Спасибо, что выбираете Argent Proxy!"""
-    
+
     @staticmethod
     def del_key():
         return """<b>🔌 Упс, время истекло...</b>
@@ -200,7 +201,7 @@ Windows | macOS | Linux 💻
 <i>Деньги будут зачислены на баланс, списание происходит ежедневно по 2 ₽.</i>
 """
 
-    @staticmethod 
+    @staticmethod
     def payment_menu(amount: int, user_id: int):
         return f"""
 💵 <b>Пополнение баланса: {amount} ₽</b>
@@ -211,7 +212,7 @@ Windows | macOS | Linux 💻
 
 <i>После подтверждения платежа банком, средства будут зачислены на ваш баланс автоматически.</i>
 """
-    
+
     @staticmethod
     def stats_menu(stats: StatsResponse):
         text = (
@@ -220,7 +221,7 @@ Windows | macOS | Linux 💻
         f"🔑 Активных ключей: {stats.keys}\n\n"
         )
         return text
-    
+
     @staticmethod
     def adm_update(amount: int):
         return f"""

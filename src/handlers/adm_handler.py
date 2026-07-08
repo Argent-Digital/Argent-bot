@@ -1,15 +1,17 @@
 import asyncio
-from aiogram import Router, F, Bot
+
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
-from src.utils.distributor import run_distribution
-from src.utils.texts import BotTexts
+from aiogram.types import CallbackQuery, Message
+
+from src.config import settings
 from src.keyboards.user_keyboards import UserKeyboards
-from src.states.adm_states import AdminStates
 from src.loader_bot import core_client
 from src.schemas.bot_schema import AdmUpdateBalance
-from src.config import settings
+from src.states.adm_states import AdminStates
+from src.utils.distributor import run_distribution
+from src.utils.texts import BotTexts
 
 router = Router()
 
@@ -44,7 +46,7 @@ async def process_amount(message: Message, state: FSMContext, bot: Bot):
     amount = int(message.text)
 
     update_data = AdmUpdateBalance(user_id=user_id, amount=amount)
-    
+
     try:
         await core_client.adm_update_balance(data=update_data, user_id=message.from_user.id)
         try:
@@ -53,8 +55,8 @@ async def process_amount(message: Message, state: FSMContext, bot: Bot):
                 text=BotTexts.adm_update(amount=amount),
                 parse_mode="html"
             )
-        except:
-            await message.answer("Юзер заблокировал бота, не доставили сообщение!")
+        except Exception as e:
+            await message.answer(f"Юзер заблокировал бота, не доставили сообщение! {e}")
 
         await message.answer(f"Готово! Юзеру {user_id} начислен баланс {amount}.")
     except Exception as e:

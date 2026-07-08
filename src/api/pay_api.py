@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, Request
 import asyncio
-from src.schemas.pay_schemas import SuccesPay, BillingResponse
+
 from aiogram import Bot
-from src.utils.texts import BotTexts
+from fastapi import APIRouter, Depends, Request
+
 from src.auth.dependencies import get_current_user_id
 from src.auth.verify_system_token import veify_system_token
+from src.schemas.pay_schemas import BillingResponse, SuccesPay
 from src.utils.semaphore_sending_notif import send_with_semaphore
+from src.utils.texts import BotTexts
 
 router = APIRouter(prefix="/pays", tags=['pays'])
 
@@ -22,7 +24,7 @@ async def succes_pay(user_data: SuccesPay, request: Request, user_id: int = Depe
     except Exception as e:
         print (f"Error pay notif: {e}")
         return None
-    
+
 @router.post("/warning_users")
 async def billing_notifications(request: Request, notif_data: BillingResponse, service_id: int = Depends(veify_system_token)):
     bot: Bot = request.app.state.bot

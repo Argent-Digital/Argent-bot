@@ -1,8 +1,9 @@
 from aiogram import Router
+
+from src.handlers.adm_handler import router as adm_router
 from src.handlers.base_handler import router as base_router
 from src.handlers.key_handler import router as key_router
 from src.handlers.pay_handler import router as pay_router
-from src.handlers.adm_handler import router as adm_router
 
 main_router = Router()
 

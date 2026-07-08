@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
+
 class UserRegister(BaseModel):
     user_id: int
     username:str | None

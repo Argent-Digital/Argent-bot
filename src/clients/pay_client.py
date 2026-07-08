@@ -1,7 +1,9 @@
 import httpx
+
 from src.auth.security import create_access_token
 from src.schemas.jwt_schema import TokenData
 from src.schemas.pay_schemas import CreatePaymentUrl, ReturnUrl
+
 
 class ArgentPayClient:
     def __init__(self, base_url: str):

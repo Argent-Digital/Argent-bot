@@ -1,10 +1,10 @@
-from aiogram import Router, F, Bot, types
-from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
-from src.utils.texts import BotTexts
+from aiogram import F, Router
+from aiogram.types import CallbackQuery
+
 from src.keyboards.user_keyboards import UserKeyboards
 from src.loader_bot import pay_client
 from src.schemas.pay_schemas import CreatePaymentUrl
+from src.utils.texts import BotTexts
 
 router = Router()
 
@@ -21,7 +21,7 @@ async def pay_menu(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("pay_"))
 async def payment_menu(callback: CallbackQuery):
     await callback.answer()
-    
+
     amount = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
 

@@ -1,13 +1,12 @@
 services:
   argent-bot-service:
     build: .
+    container_name: argent-bot-service
     ports:
       - "8002:8000"
-    volumes:
-      - .:/app
     restart: always
     environment:
-          - PYTHONPATH=/app
+      - PYTHONPATH=/app
     logging:
       driver: "json-file"
       options:
@@ -15,7 +14,6 @@ services:
         max-file: "3"
     networks:
       - argent-shared-network
-
 
 networks:
   argent-shared-network:

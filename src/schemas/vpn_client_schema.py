@@ -1,13 +1,13 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
 from uuid import UUID
-from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
 
 class DeleteKeys(BaseModel):
     user_id: int
-    server_key_if: Optional[str]
+    server_key_if: str | None
     protocol: str
-    vless_uuid: Optional[UUID]
+    vless_uuid: UUID | None
 
     model_config=ConfigDict(from_attributes=True)
 

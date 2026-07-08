@@ -1,11 +1,11 @@
-from aiogram import Router, F, Bot
-from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
-from src.utils.texts import BotTexts
+from aiogram import Bot, F, Router
+from aiogram.filters import CommandObject, CommandStart
+from aiogram.types import CallbackQuery, FSInputFile, InputMediaPhoto, Message
+
 from src.keyboards.user_keyboards import UserKeyboards
 from src.loader_bot import core_client
-
-from src.schemas.bot_schema import UserRegister, UpdateBalance
+from src.schemas.bot_schema import UpdateBalance, UserRegister
+from src.utils.texts import BotTexts
 
 router = Router()
 
